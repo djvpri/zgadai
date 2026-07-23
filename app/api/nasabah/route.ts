@@ -27,10 +27,14 @@ export async function POST(req: NextRequest) {
   const nama = String(b.nama || "").trim();
   if (!nama) return NextResponse.json({ error: "Nama wajib diisi" }, { status: 400 });
 
+  // Batasi ukuran foto (data URL) agar payload wajar (~200KB).
+  const foto = typeof b.foto === "string" && b.foto.startsWith("data:image/") && b.foto.length < 200_000
+    ? b.foto : null;
+
   const row = await dbOne(
-    `INSERT INTO nasabah (tenant_id, nama, no_ktp, no_hp, alamat, catatan)
-     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [s.tenant_id, nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null]
+    `INSERT INTO nasabah (tenant_id, nama, no_ktp, no_hp, alamat, catatan, foto)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [s.tenant_id, nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, foto]
   );
   return NextResponse.json({ nasabah: row });
 }

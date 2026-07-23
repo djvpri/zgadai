@@ -5,7 +5,7 @@ import { tanggalID } from "@/lib/gadai";
 
 interface Nasabah {
   id: number; nama: string; no_ktp: string | null; no_hp: string | null;
-  alamat: string | null; created_at: string; gadai_aktif: number;
+  alamat: string | null; created_at: string; gadai_aktif: number; foto: string | null;
 }
 
 // Baca file gambar -> base64 (tanpa prefix data URI) + mime.
@@ -18,38 +18,66 @@ function toBase64(file: File): Promise<{ data: string; mime: string }> {
   });
 }
 
+// Kompres gambar -> data URL JPEG kecil (untuk foto wajah nasabah).
+function compressImage(file: File, max = 320, q = 0.7): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d")?.drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL("image/jpeg", q));
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// Ambil frame video -> data URL JPEG (terkompres jika untuk wajah).
+function frameToDataUrl(v: HTMLVideoElement, max?: number, q = 0.85): string {
+  let w = v.videoWidth, h = v.videoHeight;
+  if (max) { const s = Math.min(1, max / Math.max(w, h)); w = Math.round(w * s); h = Math.round(h * s); }
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  c.getContext("2d")?.drawImage(v, 0, 0, w, h);
+  return c.toDataURL("image/jpeg", q);
+}
+
 export default function NasabahPage() {
   const [list, setList] = useState<Nasabah[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "" });
+  const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", foto: "" });
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState("");
   const [err, setErr] = useState("");
-  const [camOpen, setCamOpen] = useState(false);
+  const [camMode, setCamMode] = useState<null | "ktp" | "wajah">(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Hidupkan/matikan webcam mengikuti camOpen.
+  // Hidupkan/matikan webcam mengikuti camMode (ktp=kamera belakang, wajah=depan).
   useEffect(() => {
-    if (!camOpen) return;
+    if (!camMode) return;
     let active = true;
+    const facingMode = camMode === "wajah" ? "user" : "environment";
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
+      .getUserMedia({ video: { facingMode: { ideal: facingMode } }, audio: false })
       .then((stream) => {
         if (!active) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
         if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(() => {}); }
       })
-      .catch(() => { setErr("Tidak bisa mengakses kamera. Izinkan akses atau pakai Upload."); setCamOpen(false); });
+      .catch(() => { setErr("Tidak bisa mengakses kamera. Izinkan akses atau pakai Upload."); setCamMode(null); });
     return () => {
       active = false;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [camOpen]);
+  }, [camMode]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -97,16 +125,24 @@ export default function NasabahPage() {
     runScan(data, mime);
   }
 
-  function ambilFotoWebcam() {
+  function ambilFoto() {
     const v = videoRef.current;
     if (!v || !v.videoWidth) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = v.videoWidth;
-    canvas.height = v.videoHeight;
-    canvas.getContext("2d")?.drawImage(v, 0, 0);
-    const data = canvas.toDataURL("image/jpeg", 0.9).split(",")[1];
-    setCamOpen(false); // effect cleanup menghentikan stream
-    runScan(data, "image/jpeg");
+    if (camMode === "wajah") {
+      setForm((f) => ({ ...f, foto: frameToDataUrl(v, 320, 0.7) }));
+      setCamMode(null);
+    } else {
+      const data = frameToDataUrl(v, undefined, 0.9).split(",")[1];
+      setCamMode(null); // effect cleanup menghentikan stream
+      runScan(data, "image/jpeg");
+    }
+  }
+
+  async function uploadWajah(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setForm((f) => ({ ...f, foto: await compressImage(file, 320, 0.7) }));
   }
 
   async function simpan(e: React.FormEvent) {
@@ -119,7 +155,7 @@ export default function NasabahPage() {
     setSaving(false);
     if (r.ok) {
       setShowForm(false);
-      setForm({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "" });
+      setForm({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", foto: "" });
       setScanMsg("");
       load();
     } else {
@@ -153,8 +189,8 @@ export default function NasabahPage() {
           <ul className="divide-y divide-slate-100">
             {list.map((n) => (
               <li key={n.id} className="flex items-center gap-3 px-5 py-3.5">
-                <div className="w-9 h-9 rounded-full bg-navy-100 text-navy-700 grid place-items-center font-semibold shrink-0">
-                  {n.nama.charAt(0).toUpperCase()}
+                <div className="w-9 h-9 rounded-full bg-navy-100 text-navy-700 grid place-items-center font-semibold shrink-0 overflow-hidden">
+                  {n.foto ? <img src={n.foto} alt="" className="w-full h-full object-cover" /> : n.nama.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-navy-900 truncate">{n.nama}</div>
@@ -196,12 +232,37 @@ export default function NasabahPage() {
                   <i className="bi bi-upload" /> Upload / Foto
                 </label>
                 <button type="button" className="btn-ghost flex-1 text-xs py-2"
-                  onClick={() => { setErr(""); setScanMsg(""); setCamOpen(true); }} disabled={scanning}>
+                  onClick={() => { setErr(""); setScanMsg(""); setCamMode("ktp"); }} disabled={scanning}>
                   <i className="bi bi-camera-video" /> Webcam
                 </button>
               </div>
             </div>
             {scanMsg && <p className="text-xs text-emerald-600 -mt-1"><i className="bi bi-check-circle me-1" />{scanMsg}</p>}
+
+            {/* Foto wajah nasabah */}
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-full bg-navy-50 border border-slate-200 overflow-hidden grid place-items-center shrink-0">
+                {form.foto ? <img src={form.foto} alt="Foto nasabah" className="w-full h-full object-cover" />
+                  : <i className="bi bi-person text-3xl text-slate-300" />}
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-navy-800">Foto Wajah Nasabah</div>
+                <div className="flex gap-2 mt-2">
+                  <button type="button" className="btn-ghost text-xs py-1.5" onClick={() => { setErr(""); setCamMode("wajah"); }}>
+                    <i className="bi bi-camera" /> Foto
+                  </button>
+                  <label className="btn-ghost text-xs py-1.5 cursor-pointer">
+                    <input type="file" accept="image/*" capture="user" className="hidden" onChange={uploadWajah} />
+                    <i className="bi bi-upload" /> Upload
+                  </label>
+                  {form.foto && (
+                    <button type="button" className="btn-ghost text-xs py-1.5" onClick={() => setForm((f) => ({ ...f, foto: "" }))}>
+                      <i className="bi bi-trash3 text-red-500" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
 
             <div>
               <label className="label">Nama Lengkap *</label>
@@ -230,18 +291,24 @@ export default function NasabahPage() {
         </div>
       )}
 
-      {/* Modal webcam */}
-      {camOpen && (
+      {/* Modal webcam (KTP / wajah) */}
+      {camMode && (
         <div className="fixed inset-0 z-[60] bg-black/85 grid place-items-center p-4">
           <div className="w-full max-w-md bg-navy-950 rounded-2xl overflow-hidden">
             <div className="relative bg-black aspect-[4/3]">
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-              <div className="absolute inset-x-6 inset-y-10 border-2 border-white/70 rounded-lg pointer-events-none" />
-              <div className="absolute bottom-2 inset-x-0 text-center text-white/80 text-xs">Posisikan KTP di dalam kotak</div>
+              {camMode === "wajah" ? (
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-52 border-2 border-white/70 rounded-[50%] pointer-events-none" />
+              ) : (
+                <div className="absolute inset-x-6 inset-y-10 border-2 border-white/70 rounded-lg pointer-events-none" />
+              )}
+              <div className="absolute bottom-2 inset-x-0 text-center text-white/80 text-xs">
+                {camMode === "wajah" ? "Posisikan wajah di dalam oval" : "Posisikan KTP di dalam kotak"}
+              </div>
             </div>
             <div className="flex gap-2 p-3">
-              <button type="button" className="btn-ghost flex-1" onClick={() => setCamOpen(false)}>Tutup</button>
-              <button type="button" className="btn-gold flex-1" onClick={ambilFotoWebcam}><i className="bi bi-camera" /> Ambil Foto</button>
+              <button type="button" className="btn-ghost flex-1" onClick={() => setCamMode(null)}>Tutup</button>
+              <button type="button" className="btn-gold flex-1" onClick={ambilFoto}><i className="bi bi-camera" /> Ambil Foto</button>
             </div>
           </div>
         </div>
