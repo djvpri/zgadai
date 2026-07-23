@@ -4,13 +4,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" },
-  { href: "/nasabah", label: "Nasabah", icon: "bi-people" },
-  { href: "/gadai/baru", label: "Gadai Baru", icon: "bi-plus-square" },
-  { href: "/transaksi", label: "Transaksi", icon: "bi-list-check" },
-  { href: "/laporan", label: "Laporan", icon: "bi-bar-chart" },
-  { href: "/pengaturan", label: "Pengaturan", icon: "bi-gear" },
+  { href: "/dashboard", label: "Dashboard", short: "Home", icon: "bi-speedometer2" },
+  { href: "/nasabah", label: "Nasabah", short: "Nasabah", icon: "bi-people" },
+  { href: "/gadai/baru", label: "Gadai Baru", short: "Gadai", icon: "bi-plus-square" },
+  { href: "/transaksi", label: "Transaksi", short: "Transaksi", icon: "bi-list-check" },
+  { href: "/laporan", label: "Laporan", short: "Laporan", icon: "bi-bar-chart" },
+  { href: "/pengaturan", label: "Pengaturan", short: "Atur", icon: "bi-gear" },
 ];
+// Bottom nav mobile: 5 utama (Pengaturan lewat gear di top bar)
+const BOTTOM = NAV.filter((n) => n.href !== "/pengaturan");
 
 interface Me {
   user: { nama: string; email: string; role: string };
@@ -64,24 +66,36 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile top bar */}
-      <div className="md:hidden sticky top-0 z-30 bg-navy-900 text-white no-print">
-        <div className="flex items-center justify-between px-4 py-3">
-          <span className="font-bold flex items-center gap-2"><i className="bi bi-safe2-fill text-gold-400" /> ZGadai</span>
-          <button onClick={logout} className="text-navy-200 text-sm"><i className="bi bi-box-arrow-right" /></button>
+      <div className="md:hidden sticky top-0 z-30 bg-navy-900 text-white flex items-center justify-between px-4 py-3 no-print"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+        <span className="font-bold flex items-center gap-2"><i className="bi bi-safe2-fill text-gold-400" /> ZGadai</span>
+        <div className="flex items-center gap-4">
+          <Link href="/pengaturan" className={`text-lg ${active("/pengaturan") ? "text-gold-400" : "text-navy-200"}`}><i className="bi bi-gear" /></Link>
+          <button onClick={logout} className="text-navy-200 text-lg" aria-label="Keluar"><i className="bi bi-box-arrow-right" /></button>
         </div>
-        <nav className="flex gap-1 px-2 pb-2 overflow-x-auto">
-          {NAV.map((n) => (
-            <Link key={n.href} href={n.href}
-              className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium ${
-                active(n.href) ? "bg-white/15 text-white" : "text-navy-200"
-              }`}>
-              <i className={`bi ${n.icon} me-1`} />{n.label}
-            </Link>
-          ))}
-        </nav>
       </div>
 
-      <main className="flex-1 min-w-0 p-4 md:p-8 max-w-6xl">{children}</main>
+      <main className="flex-1 min-w-0 p-4 md:p-8 pb-24 md:pb-8 max-w-6xl">{children}</main>
+
+      {/* Mobile bottom nav */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 no-print"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="grid grid-cols-5">
+          {BOTTOM.map((n) => {
+            const on = active(n.href);
+            const center = n.href === "/gadai/baru";
+            return (
+              <Link key={n.href} href={n.href}
+                className={`flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${on ? "text-navy-800" : "text-slate-400"}`}>
+                <span className={center ? "w-9 h-9 -mt-3 rounded-full bg-navy-800 text-white grid place-items-center shadow-pop" : ""}>
+                  <i className={`bi ${n.icon} ${center ? "text-lg" : "text-lg"}`} />
+                </span>
+                {n.short}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
