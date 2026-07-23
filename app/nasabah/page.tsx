@@ -8,6 +8,16 @@ interface Nasabah {
   alamat: string | null; created_at: string; gadai_aktif: number;
 }
 
+// Baca file gambar -> base64 (tanpa prefix data URI) + mime.
+function toBase64(file: File): Promise<{ data: string; mime: string }> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve({ data: (r.result as string).split(",")[1], mime: file.type });
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
 export default function NasabahPage() {
   const [list, setList] = useState<Nasabah[]>([]);
   const [q, setQ] = useState("");
@@ -15,6 +25,8 @@ export default function NasabahPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "" });
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanMsg, setScanMsg] = useState("");
   const [err, setErr] = useState("");
 
   const load = useCallback(() => {
@@ -30,6 +42,35 @@ export default function NasabahPage() {
     return () => clearTimeout(t);
   }, [load]);
 
+  async function scanKtp(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 6 * 1024 * 1024) { setErr("Foto KTP maksimal 6MB"); return; }
+    setScanning(true); setErr(""); setScanMsg("");
+    try {
+      const { data, mime } = await toBase64(file);
+      const r = await fetch("/api/ktp/scan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: data, mimeType: mime }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setErr(d.error || "Gagal membaca KTP"); return; }
+      setForm((f) => ({
+        ...f,
+        nama: d.nama || f.nama,
+        no_ktp: d.nik || f.no_ktp,
+        alamat: d.alamat || f.alamat,
+        catatan: [d.ttl && `TTL: ${d.ttl}`, d.jenis_kelamin && `JK: ${d.jenis_kelamin}`].filter(Boolean).join(" · ") || f.catatan,
+      }));
+      setScanMsg("Data KTP terbaca — periksa & lengkapi bila perlu.");
+    } catch {
+      setErr("Gagal memproses gambar");
+    } finally {
+      setScanning(false);
+    }
+  }
+
   async function simpan(e: React.FormEvent) {
     e.preventDefault();
     if (!form.nama.trim()) { setErr("Nama wajib diisi"); return; }
@@ -41,6 +82,7 @@ export default function NasabahPage() {
     if (r.ok) {
       setShowForm(false);
       setForm({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "" });
+      setScanMsg("");
       load();
     } else {
       const d = await r.json();
@@ -55,7 +97,7 @@ export default function NasabahPage() {
           <h1 className="text-2xl font-bold text-navy-900">Nasabah</h1>
           <p className="text-slate-500 text-sm">{list.length} nasabah terdaftar</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="btn-primary"><i className="bi bi-person-plus" /> Tambah</button>
+        <button onClick={() => { setShowForm(true); setErr(""); setScanMsg(""); }} className="btn-primary"><i className="bi bi-person-plus" /> Tambah</button>
       </div>
 
       <div className="relative mb-4">
@@ -99,6 +141,22 @@ export default function NasabahPage() {
           <form onClick={(e) => e.stopPropagation()} onSubmit={simpan}
             className="card p-6 w-full max-w-md space-y-4">
             <h2 className="text-lg font-bold text-navy-900">Tambah Nasabah</h2>
+
+            {/* Scan KTP → auto-isi (Gemini) */}
+            <label className="block cursor-pointer">
+              <input type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={scanKtp} disabled={scanning} />
+              <div className="border-2 border-dashed border-navy-200 rounded-xl p-3 flex items-center gap-3 hover:border-navy-400 bg-navy-50/60 transition-colors">
+                <i className="bi bi-person-vcard text-navy-600 text-xl" />
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-navy-800">{scanning ? "Membaca KTP…" : "Scan / Upload KTP"}</div>
+                  <div className="text-[11px] text-slate-500">Auto-isi nama, NIK & alamat dari foto KTP</div>
+                </div>
+                {scanning && <span className="w-4 h-4 border-2 border-navy-300 border-t-navy-700 rounded-full animate-spin" />}
+              </div>
+            </label>
+            {scanMsg && <p className="text-xs text-emerald-600 -mt-1"><i className="bi bi-check-circle me-1" />{scanMsg}</p>}
+
             <div>
               <label className="label">Nama Lengkap *</label>
               <input className="input" value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} autoFocus />
