@@ -5,7 +5,7 @@ import AppShell from "@/components/AppShell";
 import { rupiah, tanggalID, statusJatuhTempo, STATUS_BADGE } from "@/lib/gadai";
 import { cetakSBG } from "@/lib/cetak";
 
-type Aksi = "tebus" | "perpanjang" | "cicil" | null;
+type Aksi = "tebus" | "perpanjang" | "cicil" | "lelang" | null;
 
 export default function DetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -13,6 +13,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [aksi, setAksi] = useState<Aksi>(null);
   const [cicil, setCicil] = useState("");
+  const [hargaLelang, setHargaLelang] = useState("");
   const [proc, setProc] = useState(false);
   const [toast, setToast] = useState("");
 
@@ -32,19 +33,30 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   const tebus = data.tebus;
   const aktif = g.status === "aktif";
   const badge = aktif ? (STATUS_BADGE[statusJatuhTempo(g.tgl_jatuh_tempo)] || STATUS_BADGE.aktif) : STATUS_BADGE[g.status];
+  const selisihLelang = Number(g.harga_lelang || 0) - Number(g.nilai_kewajiban_lelang || 0);
+  const previewSelisih = Number(hargaLelang || 0) - (tebus ? tebus.total : 0);
 
   async function proses() {
     setProc(true);
-    const body: any = { jenis: aksi };
-    if (aksi === "cicil") body.pokok_dibayar = Number(cicil || 0);
-    const r = await fetch(`/api/gadai/${id}/bayar`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    });
+    let r: Response;
+    if (aksi === "lelang") {
+      r = await fetch(`/api/gadai/${id}/lelang`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ harga_lelang: Number(hargaLelang || 0) }),
+      });
+    } else {
+      const body: any = { jenis: aksi };
+      if (aksi === "cicil") body.pokok_dibayar = Number(cicil || 0);
+      r = await fetch(`/api/gadai/${id}/bayar`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+    }
     setProc(false);
     const d = await r.json();
     if (r.ok) {
-      setAksi(null); setCicil("");
-      setToast(aksi === "tebus" ? "Barang ditebus / lunas" : aksi === "perpanjang" ? "Gadai diperpanjang" : "Cicilan tercatat");
+      setAksi(null); setCicil(""); setHargaLelang("");
+      setToast(aksi === "tebus" ? "Barang ditebus / lunas" : aksi === "perpanjang" ? "Gadai diperpanjang"
+        : aksi === "cicil" ? "Cicilan tercatat" : "Barang ditandai lelang");
       load();
     } else {
       setToast(d.error || "Gagal memproses");
@@ -148,14 +160,31 @@ export default function DetailPage({ params }: { params: { id: string } }) {
             )}
 
             {aktif ? (
-              <div className="grid grid-cols-3 gap-2 pt-2">
-                <button className="btn-primary text-xs px-2" onClick={() => setAksi("tebus")}><i className="bi bi-bag-check" />Tebus</button>
-                <button className="btn-ghost text-xs px-2" onClick={() => setAksi("perpanjang")}><i className="bi bi-arrow-repeat" />Perpanjang</button>
-                <button className="btn-ghost text-xs px-2" onClick={() => setAksi("cicil")}><i className="bi bi-coin" />Cicil</button>
-              </div>
+              <>
+                <div className="grid grid-cols-3 gap-2 pt-2">
+                  <button className="btn-primary text-xs px-2" onClick={() => setAksi("tebus")}><i className="bi bi-bag-check" />Tebus</button>
+                  <button className="btn-ghost text-xs px-2" onClick={() => setAksi("perpanjang")}><i className="bi bi-arrow-repeat" />Perpanjang</button>
+                  <button className="btn-ghost text-xs px-2" onClick={() => setAksi("cicil")}><i className="bi bi-coin" />Cicil</button>
+                </div>
+                <button className="w-full mt-2 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 rounded-xl py-2 transition-colors"
+                  onClick={() => setAksi("lelang")}>
+                  <i className="bi bi-hammer me-1" />Lelang Barang
+                </button>
+              </>
+            ) : g.status === "lunas" ? (
+              <div className="text-center text-sm text-slate-500 pt-2">Ditebus {tanggalID(g.tgl_lunas)}</div>
             ) : (
-              <div className="text-center text-sm text-slate-500 pt-2">
-                {g.status === "lunas" ? `Ditebus ${tanggalID(g.tgl_lunas)}` : "Sudah dilelang"}
+              <div className="bg-navy-50 rounded-xl p-3 mt-2 space-y-1">
+                <div className="text-xs font-semibold text-slate-500 mb-1"><i className="bi bi-hammer me-1" />Hasil Lelang · {tanggalID(g.tgl_lelang)}</div>
+                <Row k="Kewajiban" v={rupiah(g.nilai_kewajiban_lelang)} />
+                <Row k="Harga Jual" v={rupiah(g.harga_lelang)} />
+                <div className="flex justify-between border-t border-navy-200 pt-1.5 mt-1">
+                  {selisihLelang >= 0 ? (
+                    <><span className="font-semibold text-emerald-700">Kelebihan (ke nasabah)</span><span className="font-bold text-emerald-700 tnum">{rupiah(selisihLelang)}</span></>
+                  ) : (
+                    <><span className="font-semibold text-red-600">Kekurangan</span><span className="font-bold text-red-600 tnum">{rupiah(-selisihLelang)}</span></>
+                  )}
+                </div>
               </div>
             )}
           </section>
@@ -166,8 +195,8 @@ export default function DetailPage({ params }: { params: { id: string } }) {
       {aksi && (
         <div className="fixed inset-0 z-50 bg-navy-950/40 grid place-items-center p-4" onClick={() => !proc && setAksi(null)}>
           <div className="card p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-navy-900 mb-3 capitalize">
-              {aksi === "tebus" ? "Tebus / Pelunasan" : aksi === "perpanjang" ? "Perpanjang Gadai" : "Cicil Pokok"}
+            <h3 className="text-lg font-bold text-navy-900 mb-3">
+              {aksi === "tebus" ? "Tebus / Pelunasan" : aksi === "perpanjang" ? "Perpanjang Gadai" : aksi === "cicil" ? "Cicil Pokok" : "Lelang Barang"}
             </h3>
 
             {aksi === "tebus" && tebus && (
@@ -184,10 +213,23 @@ export default function DetailPage({ params }: { params: { id: string } }) {
                 <p className="text-[11px] text-slate-400 mt-1">Maks {rupiah(g.pokok_sisa)}. Total bayar: {rupiah(tebus.bunga + tebus.denda + Number(cicil || 0))}</p>
               </div>
             )}
+            {aksi === "lelang" && tebus && (
+              <div className="mb-4">
+                <p className="text-sm text-slate-600 mb-2">Kewajiban nasabah <b className="text-navy-900">{rupiah(tebus.total)}</b> (pokok+bunga+denda). Masukkan harga jual barang:</p>
+                <input className="input tnum" inputMode="numeric" placeholder="Harga jual lelang"
+                  value={hargaLelang} onChange={(e) => setHargaLelang(e.target.value.replace(/\D/g, ""))} autoFocus />
+                {hargaLelang !== "" && (
+                  <p className={`text-xs mt-1.5 font-semibold ${previewSelisih >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                    {previewSelisih >= 0 ? `Kelebihan ${rupiah(previewSelisih)} dikembalikan ke nasabah` : `Kekurangan ${rupiah(-previewSelisih)}`}
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-400 mt-1">Status gadai akan menjadi &ldquo;Lelang&rdquo; dan tidak bisa ditebus lagi.</p>
+              </div>
+            )}
 
             <div className="flex gap-2 justify-end">
               <button className="btn-ghost" onClick={() => setAksi(null)} disabled={proc}>Batal</button>
-              <button className="btn-gold" onClick={proses} disabled={proc || (aksi === "cicil" && Number(cicil) <= 0)}>
+              <button className="btn-gold" onClick={proses} disabled={proc || (aksi === "cicil" && Number(cicil) <= 0) || (aksi === "lelang" && hargaLelang === "")}>
                 {proc ? "Memproses…" : "Konfirmasi"}
               </button>
             </div>
