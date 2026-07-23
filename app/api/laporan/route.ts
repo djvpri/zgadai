@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
   const keluar = N(cair?.pokok);
 
   return NextResponse.json({
+    usaha: s.nama_usaha,
     periode: { from, to },
     kas: { masuk, keluar, net: masuk - keluar },
     pendapatan: { bunga, denda, admin, laba: bunga + denda + admin },

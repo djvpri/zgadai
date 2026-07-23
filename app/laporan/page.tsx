@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { rupiah } from "@/lib/gadai";
+import { cetakLaporan } from "@/lib/cetak";
 
 function firstOfMonth() {
   const d = new Date();
@@ -31,6 +32,9 @@ export default function LaporanPage() {
         <div className="flex items-end gap-2">
           <div><label className="label">Dari</label><input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
           <div><label className="label">Sampai</label><input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+          <button className="btn-ghost" disabled={!d} onClick={() => d && cetakLaporan(d, d.usaha || "ZGadai")}>
+            <i className="bi bi-printer" /> Cetak PDF
+          </button>
         </div>
       </div>
 

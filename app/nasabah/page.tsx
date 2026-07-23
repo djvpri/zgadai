@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import { tanggalID } from "@/lib/gadai";
 
@@ -189,22 +190,24 @@ export default function NasabahPage() {
         ) : (
           <ul className="divide-y divide-slate-100">
             {list.map((n) => (
-              <li key={n.id} className="flex items-center gap-3 px-5 py-3.5">
-                <div className="w-9 h-9 rounded-full bg-navy-100 text-navy-700 grid place-items-center font-semibold shrink-0 overflow-hidden">
-                  {n.foto ? <img src={n.foto} alt="" className="w-full h-full object-cover" /> : n.nama.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-navy-900 truncate">{n.nama}</div>
-                  <div className="text-xs text-slate-500 truncate tnum">
-                    {n.no_hp || "—"}{n.no_ktp ? ` · KTP ${n.no_ktp}` : ""}
+              <li key={n.id}>
+                <Link href={`/nasabah/${n.id}`} className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50">
+                  <div className="w-9 h-9 rounded-full bg-navy-100 text-navy-700 grid place-items-center font-semibold shrink-0 overflow-hidden">
+                    {n.foto ? <img src={n.foto} alt="" className="w-full h-full object-cover" /> : n.nama.charAt(0).toUpperCase()}
                   </div>
-                </div>
-                <div className="text-right shrink-0">
-                  {n.gadai_aktif > 0 && (
-                    <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">{n.gadai_aktif} aktif</span>
-                  )}
-                  <div className="text-[11px] text-slate-400 mt-0.5">{tanggalID(n.created_at)}</div>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-navy-900 truncate">{n.nama}</div>
+                    <div className="text-xs text-slate-500 truncate tnum">
+                      {n.no_hp || "—"}{n.no_ktp ? ` · KTP ${n.no_ktp}` : ""}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    {n.gadai_aktif > 0 && (
+                      <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">{n.gadai_aktif} aktif</span>
+                    )}
+                    <div className="text-[11px] text-slate-400 mt-0.5">{tanggalID(n.created_at)}</div>
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>
