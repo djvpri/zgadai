@@ -27,7 +27,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setMe)
+      .then((data) => {
+        if (data.kind === "nasabah") { router.replace("/saya"); return; }
+        setMe(data);
+      })
       .catch(() => router.replace("/login"));
   }, [router]);
 

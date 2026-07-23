@@ -32,10 +32,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const nama = String(b.nama || "").trim();
   if (!nama) return NextResponse.json({ error: "Nama wajib diisi" }, { status: 400 });
 
+  const email = b.email ? String(b.email).trim().toLowerCase() : null;
   await dbOne(
-    `UPDATE nasabah SET nama=$1, no_ktp=$2, no_hp=$3, alamat=$4, catatan=$5, updated_at=now()
-     WHERE id=$6 RETURNING id`,
-    [nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, params.id]
+    `UPDATE nasabah SET nama=$1, no_ktp=$2, no_hp=$3, alamat=$4, catatan=$5, email=$6, updated_at=now()
+     WHERE id=$7 RETURNING id`,
+    [nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, email, params.id]
   );
   return NextResponse.json({ ok: true });
 }

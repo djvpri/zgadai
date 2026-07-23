@@ -51,7 +51,7 @@ export default function NasabahPage() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", foto: "" });
+  const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", foto: "", email: "" });
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState("");
@@ -157,7 +157,7 @@ export default function NasabahPage() {
     setSaving(false);
     if (r.ok) {
       setShowForm(false);
-      setForm({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", foto: "" });
+      setForm({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", foto: "", email: "" });
       setScanMsg("");
       load();
     } else {
@@ -285,6 +285,10 @@ export default function NasabahPage() {
             <div>
               <label className="label">Alamat</label>
               <input className="input" value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Email <span className="font-normal text-slate-400">(agar nasabah bisa cek pinjaman via Z One)</span></label>
+              <input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@nasabah.com" />
             </div>
             {err && <p className="text-sm text-red-600">{err}</p>}
             <div className="flex gap-2 justify-end">

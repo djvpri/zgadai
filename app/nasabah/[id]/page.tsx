@@ -9,7 +9,7 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState(false);
-  const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "" });
+  const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", email: "" });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
@@ -20,7 +20,7 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
 
   function openEdit() {
     const n = data.nasabah;
-    setForm({ nama: n.nama || "", no_ktp: n.no_ktp || "", no_hp: n.no_hp || "", alamat: n.alamat || "", catatan: n.catatan || "" });
+    setForm({ nama: n.nama || "", no_ktp: n.no_ktp || "", no_hp: n.no_hp || "", alamat: n.alamat || "", catatan: n.catatan || "", email: n.email || "" });
     setEdit(true);
   }
   async function simpan() {
@@ -60,6 +60,7 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
           </div>
           <div className="mt-4 space-y-2 text-sm">
             <Info k="No. KTP" v={n.no_ktp || "-"} />
+            <Info k="Email" v={n.email || "-"} />
             <Info k="Alamat" v={n.alamat || "-"} />
             {n.catatan && <Info k="Catatan" v={n.catatan} />}
             <Info k="Terdaftar" v={tanggalID(n.created_at)} />
@@ -120,6 +121,7 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
               <div><label className="label">No. HP</label><input className="input" value={form.no_hp} onChange={(e) => setForm({ ...form, no_hp: e.target.value })} /></div>
               <div><label className="label">No. KTP</label><input className="input" value={form.no_ktp} onChange={(e) => setForm({ ...form, no_ktp: e.target.value })} /></div>
             </div>
+            <div><label className="label">Email <span className="font-normal text-slate-400">(untuk cek pinjaman via Z One)</span></label><input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
             <div><label className="label">Alamat</label><input className="input" value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} /></div>
             <div><label className="label">Catatan</label><input className="input" value={form.catatan} onChange={(e) => setForm({ ...form, catatan: e.target.value })} /></div>
             <div className="flex gap-2 justify-end">

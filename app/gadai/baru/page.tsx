@@ -18,7 +18,7 @@ export default function GadaiBaruPage() {
   const [hasil, setHasil] = useState<Nasabah[]>([]);
   const [nasabah, setNasabah] = useState<Nasabah | null>(null);
   const [showNew, setShowNew] = useState(false);
-  const [baru, setBaru] = useState({ nama: "", no_hp: "", no_ktp: "" });
+  const [baru, setBaru] = useState({ nama: "", no_hp: "", no_ktp: "", email: "" });
 
   const [barang, setBarang] = useState<Barang[]>([emptyBarang()]);
   const [tglGadai, setTglGadai] = useState(new Date().toISOString().slice(0, 10));
@@ -236,6 +236,7 @@ export default function GadaiBaruPage() {
                   <input className="input" placeholder="No. HP" value={baru.no_hp} onChange={(e) => setBaru({ ...baru, no_hp: e.target.value })} />
                   <input className="input" placeholder="No. KTP" value={baru.no_ktp} onChange={(e) => setBaru({ ...baru, no_ktp: e.target.value })} />
                 </div>
+                <input className="input" type="email" placeholder="Email (opsional, untuk cek via Z One)" value={baru.email} onChange={(e) => setBaru({ ...baru, email: e.target.value })} />
                 <div className="flex gap-2">
                   <button className="btn-primary" onClick={buatNasabah}>Simpan & Pilih</button>
                   <button className="btn-ghost" onClick={() => setShowNew(false)}>Batal</button>

@@ -31,10 +31,11 @@ export async function POST(req: NextRequest) {
   const foto = typeof b.foto === "string" && b.foto.startsWith("data:image/") && b.foto.length < 200_000
     ? b.foto : null;
 
+  const email = b.email ? String(b.email).trim().toLowerCase() : null;
   const row = await dbOne(
-    `INSERT INTO nasabah (tenant_id, nama, no_ktp, no_hp, alamat, catatan, foto)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-    [s.tenant_id, nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, foto]
+    `INSERT INTO nasabah (tenant_id, nama, no_ktp, no_hp, alamat, catatan, foto, email)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    [s.tenant_id, nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, foto, email]
   );
   return NextResponse.json({ nasabah: row });
 }

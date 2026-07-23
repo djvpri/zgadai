@@ -65,3 +65,38 @@ export async function currentSession(): Promise<SessionUser | null> {
   if (!sid) return null;
   return getSession(sid);
 }
+
+// ---------- Sesi NASABAH (portal cek pinjaman lewat SSO) ----------
+export interface SessionNasabah {
+  session_id: string;
+  nasabah_id: number;
+  tenant_id: number;
+  nama: string;
+  email: string | null;
+}
+
+export async function createNasabahSession(nasabahId: number, tenantId: number, days = 30): Promise<string> {
+  const sessionId = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  await dbRun(
+    `INSERT INTO sessions (id, nasabah_id, tenant_id, expires_at) VALUES ($1,$2,$3,$4)`,
+    [sessionId, nasabahId, tenantId, expiresAt.toISOString()]
+  );
+  return sessionId;
+}
+
+export async function getNasabahSession(sessionId: string): Promise<SessionNasabah | null> {
+  if (!sessionId) return null;
+  return dbOne<SessionNasabah>(
+    `SELECT s.id as session_id, s.nasabah_id, n.tenant_id, n.nama, n.email
+       FROM sessions s JOIN nasabah n ON s.nasabah_id = n.id
+      WHERE s.id = $1 AND s.expires_at > now()`,
+    [sessionId]
+  );
+}
+
+export async function currentNasabah(): Promise<SessionNasabah | null> {
+  const sid = cookies().get("session_id")?.value;
+  if (!sid) return null;
+  return getNasabahSession(sid);
+}
