@@ -8,6 +8,7 @@ const NAV = [
   { href: "/nasabah", label: "Nasabah", icon: "bi-people" },
   { href: "/gadai/baru", label: "Gadai Baru", icon: "bi-plus-square" },
   { href: "/transaksi", label: "Transaksi", icon: "bi-list-check" },
+  { href: "/laporan", label: "Laporan", icon: "bi-bar-chart" },
   { href: "/pengaturan", label: "Pengaturan", icon: "bi-gear" },
 ];
 
