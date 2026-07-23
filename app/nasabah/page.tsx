@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import AppShell from "@/components/AppShell";
 import { tanggalID } from "@/lib/gadai";
 
@@ -28,6 +28,28 @@ export default function NasabahPage() {
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState("");
   const [err, setErr] = useState("");
+  const [camOpen, setCamOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Hidupkan/matikan webcam mengikuti camOpen.
+  useEffect(() => {
+    if (!camOpen) return;
+    let active = true;
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
+      .then((stream) => {
+        if (!active) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(() => {}); }
+      })
+      .catch(() => { setErr("Tidak bisa mengakses kamera. Izinkan akses atau pakai Upload."); setCamOpen(false); });
+    return () => {
+      active = false;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, [camOpen]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -42,14 +64,9 @@ export default function NasabahPage() {
     return () => clearTimeout(t);
   }, [load]);
 
-  async function scanKtp(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (file.size > 6 * 1024 * 1024) { setErr("Foto KTP maksimal 6MB"); return; }
+  async function runScan(data: string, mime: string) {
     setScanning(true); setErr(""); setScanMsg("");
     try {
-      const { data, mime } = await toBase64(file);
       const r = await fetch("/api/ktp/scan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: data, mimeType: mime }),
@@ -69,6 +86,27 @@ export default function NasabahPage() {
     } finally {
       setScanning(false);
     }
+  }
+
+  async function scanKtp(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 6 * 1024 * 1024) { setErr("Foto KTP maksimal 6MB"); return; }
+    const { data, mime } = await toBase64(file);
+    runScan(data, mime);
+  }
+
+  function ambilFotoWebcam() {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = v.videoWidth;
+    canvas.height = v.videoHeight;
+    canvas.getContext("2d")?.drawImage(v, 0, 0);
+    const data = canvas.toDataURL("image/jpeg", 0.9).split(",")[1];
+    setCamOpen(false); // effect cleanup menghentikan stream
+    runScan(data, "image/jpeg");
   }
 
   async function simpan(e: React.FormEvent) {
@@ -142,19 +180,27 @@ export default function NasabahPage() {
             className="card p-6 w-full max-w-md space-y-4">
             <h2 className="text-lg font-bold text-navy-900">Tambah Nasabah</h2>
 
-            {/* Scan KTP → auto-isi (Gemini) */}
-            <label className="block cursor-pointer">
-              <input type="file" accept="image/*" capture="environment" className="hidden"
-                onChange={scanKtp} disabled={scanning} />
-              <div className="border-2 border-dashed border-navy-200 rounded-xl p-3 flex items-center gap-3 hover:border-navy-400 bg-navy-50/60 transition-colors">
+            {/* Scan KTP → auto-isi (Gemini): upload/foto atau webcam */}
+            <div className="border-2 border-dashed border-navy-200 rounded-xl p-3 bg-navy-50/60">
+              <div className="flex items-center gap-3">
                 <i className="bi bi-person-vcard text-navy-600 text-xl" />
                 <div className="flex-1">
-                  <div className="text-sm font-semibold text-navy-800">{scanning ? "Membaca KTP…" : "Scan / Upload KTP"}</div>
-                  <div className="text-[11px] text-slate-500">Auto-isi nama, NIK & alamat dari foto KTP</div>
+                  <div className="text-sm font-semibold text-navy-800">{scanning ? "Membaca KTP…" : "Scan KTP → auto-isi"}</div>
+                  <div className="text-[11px] text-slate-500">Nama, NIK & alamat dari foto KTP</div>
                 </div>
                 {scanning && <span className="w-4 h-4 border-2 border-navy-300 border-t-navy-700 rounded-full animate-spin" />}
               </div>
-            </label>
+              <div className="flex gap-2 mt-3">
+                <label className="btn-ghost flex-1 cursor-pointer text-xs py-2">
+                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={scanKtp} disabled={scanning} />
+                  <i className="bi bi-upload" /> Upload / Foto
+                </label>
+                <button type="button" className="btn-ghost flex-1 text-xs py-2"
+                  onClick={() => { setErr(""); setScanMsg(""); setCamOpen(true); }} disabled={scanning}>
+                  <i className="bi bi-camera-video" /> Webcam
+                </button>
+              </div>
+            </div>
             {scanMsg && <p className="text-xs text-emerald-600 -mt-1"><i className="bi bi-check-circle me-1" />{scanMsg}</p>}
 
             <div>
@@ -181,6 +227,23 @@ export default function NasabahPage() {
               <button className="btn-primary" disabled={saving}>{saving ? "Menyimpan…" : "Simpan"}</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Modal webcam */}
+      {camOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/85 grid place-items-center p-4">
+          <div className="w-full max-w-md bg-navy-950 rounded-2xl overflow-hidden">
+            <div className="relative bg-black aspect-[4/3]">
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+              <div className="absolute inset-x-6 inset-y-10 border-2 border-white/70 rounded-lg pointer-events-none" />
+              <div className="absolute bottom-2 inset-x-0 text-center text-white/80 text-xs">Posisikan KTP di dalam kotak</div>
+            </div>
+            <div className="flex gap-2 p-3">
+              <button type="button" className="btn-ghost flex-1" onClick={() => setCamOpen(false)}>Tutup</button>
+              <button type="button" className="btn-gold flex-1" onClick={ambilFotoWebcam}><i className="bi bi-camera" /> Ambil Foto</button>
+            </div>
+          </div>
         </div>
       )}
     </AppShell>
