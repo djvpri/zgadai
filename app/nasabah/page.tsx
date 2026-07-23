@@ -142,7 +142,8 @@ export default function NasabahPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setForm((f) => ({ ...f, foto: await compressImage(file, 320, 0.7) }));
+    const foto = await compressImage(file, 320, 0.7);
+    setForm((f) => ({ ...f, foto }));
   }
 
   async function simpan(e: React.FormEvent) {
