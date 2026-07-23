@@ -6,7 +6,7 @@ import PWARegister from "@/components/PWARegister";
 export const metadata: Metadata = {
   title: "ZGadai — Manajemen Usaha Gadai",
   description: "Kelola gadai: nasabah, taksiran, pinjaman, tebus & perpanjang.",
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  icons: { icon: "/icon.svg" },
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "ZGadai" },
 };
 
