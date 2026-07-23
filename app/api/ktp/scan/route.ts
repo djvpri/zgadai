@@ -39,19 +39,28 @@ Aturan:
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: image } }] }],
-        generationConfig: { responseMimeType: "application/json", temperature: 0, maxOutputTokens: 1024 },
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0,
+          maxOutputTokens: 2048,
+          thinkingConfig: { thinkingBudget: 0 }, // matikan "thinking" agar output tidak terpotong
+        },
       }),
     });
     if (!resp.ok) {
       const t = await resp.text();
-      console.error("[ktp scan] gemini error", resp.status, t.slice(0, 200));
+      console.error("[ktp scan] gemini error", resp.status, t.slice(0, 300));
       return NextResponse.json({ error: "Gagal membaca KTP (AI)" }, { status: 502 });
     }
     const data = await resp.json();
-    const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const cand = data?.candidates?.[0];
+    const text: string = (cand?.content?.parts || []).map((p: any) => p?.text || "").join("").trim();
+    if (!text) {
+      console.error("[ktp scan] empty text", cand?.finishReason, JSON.stringify(data?.promptFeedback || {}));
+      return NextResponse.json({ error: "AI tidak mengembalikan data (coba foto lebih jelas)" }, { status: 502 });
+    }
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return NextResponse.json({ error: "AI tidak mengembalikan data" }, { status: 502 });
-    const parsed = JSON.parse(match[0]);
+    const parsed = JSON.parse(match ? match[0] : text);
 
     return NextResponse.json({
       nama: String(parsed.nama || "").trim(),
