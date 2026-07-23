@@ -34,6 +34,8 @@ export default function GadaiBaruPage() {
   const [hargaEmas, setHargaEmas] = useState(0);
   const [jenisOpts, setJenisOpts] = useState<string[]>(JENIS);
   const [plafonPersen, setPlafonPersen] = useState(90);
+  const [adminTetap, setAdminTetap] = useState(0);
+  const [adminPersen, setAdminPersen] = useState(0);
 
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then((d) => {
@@ -44,7 +46,10 @@ export default function GadaiBaruPage() {
       if (s.bunga_persen !== undefined) setBunga(String(s.bunga_persen));
       if (s.periode_hari) setPeriodeHari(Number(s.periode_hari));
       if (s.tempo_hari) setTempoHari(Number(s.tempo_hari));
-      if (s.biaya_admin !== undefined) setBiayaAdmin(String(s.biaya_admin));
+      const at = Number(s.biaya_admin || 0);
+      const ap = Number(s.biaya_admin_persen || 0);
+      setAdminTetap(at); setAdminPersen(ap);
+      if (at > 0) setBiayaAdmin(String(at));
     }).catch(() => {});
   }, []);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -78,6 +83,14 @@ export default function GadaiBaruPage() {
 
   function setB(i: number, patch: Partial<Barang>) {
     setBarang((prev) => prev.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
+  }
+
+  // Update uang pinjaman + hitung ulang biaya admin (nominal + %×pinjaman).
+  function updatePokok(v: string) {
+    setPokok(v);
+    if (adminTetap > 0 || adminPersen > 0) {
+      setBiayaAdmin(String(adminTetap + Math.round((Number(v || 0) * adminPersen) / 100)));
+    }
   }
 
   // Emas: update field lalu hitung ulang taksiran = berat × kadar × harga.
@@ -333,13 +346,13 @@ export default function GadaiBaruPage() {
               <div className="flex items-center justify-between">
                 <label className="label mb-0">Uang Pinjaman *</label>
                 {saranPlafon > 0 && (
-                  <button className="text-[11px] text-gold-600 font-semibold" onClick={() => setPokok(String(saranPlafon))}>
+                  <button className="text-[11px] text-gold-600 font-semibold" onClick={() => updatePokok(String(saranPlafon))}>
                     Saran {rupiah(saranPlafon)}
                   </button>
                 )}
               </div>
               <input className="input tnum mt-1" inputMode="numeric" placeholder="0"
-                value={pokok} onChange={(e) => setPokok(e.target.value.replace(/\D/g, ""))} />
+                value={pokok} onChange={(e) => updatePokok(e.target.value.replace(/\D/g, ""))} />
               <p className="text-[11px] text-slate-400 mt-1">Plafon = {plafonPersen}% taksiran</p>
             </div>
 

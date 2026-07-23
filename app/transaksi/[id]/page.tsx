@@ -110,6 +110,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
                       <div className="font-medium capitalize text-navy-900">{p.jenis}</div>
                       <div className="text-xs text-slate-500 tnum">{tanggalID(p.tgl)}
                         {p.bunga_dibayar > 0 ? ` · bunga ${rupiah(p.bunga_dibayar)}` : ""}
+                        {p.denda_dibayar > 0 ? ` · denda ${rupiah(p.denda_dibayar)}` : ""}
                         {p.pokok_dibayar > 0 ? ` · pokok ${rupiah(p.pokok_dibayar)}` : ""}</div>
                     </div>
                     <div className="font-semibold text-navy-900 tnum">{rupiah(p.total)}</div>
@@ -133,9 +134,12 @@ export default function DetailPage({ params }: { params: { id: string } }) {
 
             {aktif && tebus && (
               <div className="bg-navy-50 rounded-xl p-3 mt-3 space-y-1">
-                <div className="text-xs font-semibold text-slate-500 mb-1">Untuk tebus hari ini ({tebus.periode} periode)</div>
+                <div className="text-xs font-semibold text-slate-500 mb-1">
+                  Untuk tebus hari ini ({tebus.periode} periode{tebus.hariTelat > 0 ? `, telat ${tebus.hariTelat} hr` : ""})
+                </div>
                 <Row k="Sisa Pokok" v={rupiah(tebus.pokok)} />
                 <Row k="Bunga" v={rupiah(tebus.bunga)} />
+                {tebus.denda > 0 && <Row k="Denda telat" v={rupiah(tebus.denda)} />}
                 <div className="flex justify-between border-t border-navy-200 pt-1.5 mt-1">
                   <span className="font-semibold text-navy-900">Total Tebus</span>
                   <span className="font-bold text-emerald-700 tnum">{rupiah(tebus.total)}</span>
@@ -167,17 +171,17 @@ export default function DetailPage({ params }: { params: { id: string } }) {
             </h3>
 
             {aksi === "tebus" && tebus && (
-              <p className="text-sm text-slate-600 mb-4">Nasabah membayar <b className="text-navy-900">{rupiah(tebus.total)}</b> (pokok {rupiah(tebus.pokok)} + bunga {rupiah(tebus.bunga)}). Barang dikembalikan & SBG lunas.</p>
+              <p className="text-sm text-slate-600 mb-4">Nasabah membayar <b className="text-navy-900">{rupiah(tebus.total)}</b> (pokok {rupiah(tebus.pokok)} + bunga {rupiah(tebus.bunga)}{tebus.denda > 0 ? ` + denda ${rupiah(tebus.denda)}` : ""}). Barang dikembalikan & SBG lunas.</p>
             )}
             {aksi === "perpanjang" && tebus && (
-              <p className="text-sm text-slate-600 mb-4">Nasabah membayar bunga <b className="text-navy-900">{rupiah(tebus.bunga)}</b>. Jatuh tempo diperpanjang & siklus bunga direset.</p>
+              <p className="text-sm text-slate-600 mb-4">Nasabah membayar bunga <b className="text-navy-900">{rupiah(tebus.bunga)}</b>{tebus.denda > 0 ? ` + denda ${rupiah(tebus.denda)}` : ""} = <b className="text-navy-900">{rupiah(tebus.bunga + tebus.denda)}</b>. Jatuh tempo diperpanjang & siklus bunga direset.</p>
             )}
             {aksi === "cicil" && tebus && (
               <div className="mb-4">
-                <p className="text-sm text-slate-600 mb-2">Bayar bunga <b className="text-navy-900">{rupiah(tebus.bunga)}</b> + cicilan pokok:</p>
+                <p className="text-sm text-slate-600 mb-2">Bayar bunga <b className="text-navy-900">{rupiah(tebus.bunga)}</b>{tebus.denda > 0 ? ` + denda ${rupiah(tebus.denda)}` : ""} + cicilan pokok:</p>
                 <input className="input tnum" inputMode="numeric" placeholder="Nominal cicilan pokok"
                   value={cicil} onChange={(e) => setCicil(e.target.value.replace(/\D/g, ""))} autoFocus />
-                <p className="text-[11px] text-slate-400 mt-1">Maks {rupiah(g.pokok_sisa)}. Total bayar: {rupiah(tebus.bunga + Number(cicil || 0))}</p>
+                <p className="text-[11px] text-slate-400 mt-1">Maks {rupiah(g.pokok_sisa)}. Total bayar: {rupiah(tebus.bunga + tebus.denda + Number(cicil || 0))}</p>
               </div>
             )}
 

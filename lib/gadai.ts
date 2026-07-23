@@ -29,6 +29,7 @@ export function hitungBunga(pokokSisa: number, bungaPersen: number, periode: num
 
 export interface GadaiCore {
   tgl_gadai: string;
+  tgl_jatuh_tempo: string;
   periode_hari: number;
   bunga_persen: number;
   pokok_sisa: number;
@@ -37,21 +38,30 @@ export interface GadaiCore {
 export interface HitungTebus {
   periode: number;
   bunga: number;
+  denda: number;
+  hariTelat: number;
   pokok: number;
   total: number;
 }
 
-/** Rincian tebus (pelunasan) per tanggal tertentu (default hari ini). */
-export function hitungTebus(g: GadaiCore, sampai: string | Date = new Date()): HitungTebus {
-  const periode = periodeBerjalan(g.tgl_gadai, sampai, g.periode_hari);
-  const bunga = hitungBunga(g.pokok_sisa, g.bunga_persen, periode);
-  return { periode, bunga, pokok: g.pokok_sisa, total: g.pokok_sisa + bunga };
+/** Jumlah hari telat dari jatuh tempo (0 kalau belum lewat). */
+export function hariTelat(jatuhTempo: string | Date, sampai: string | Date = new Date()): number {
+  return Math.max(0, selisihHari(jatuhTempo, sampai));
 }
 
-/** Bunga satu periode ke depan (untuk perpanjang). */
-export function bungaPerpanjang(g: GadaiCore, sampai: string | Date = new Date()): { periode: number; bunga: number } {
+/** Denda = pokokSisa × (denda%/hari) × jumlah hari telat. */
+export function hitungDenda(pokokSisa: number, dendaPersenPerHari: number, telat: number): number {
+  if (!telat || !dendaPersenPerHari) return 0;
+  return Math.round(pokokSisa * (dendaPersenPerHari / 100) * telat);
+}
+
+/** Rincian tebus (pelunasan) per tanggal tertentu (default hari ini). */
+export function hitungTebus(g: GadaiCore, dendaPersenPerHari = 0, sampai: string | Date = new Date()): HitungTebus {
   const periode = periodeBerjalan(g.tgl_gadai, sampai, g.periode_hari);
-  return { periode, bunga: hitungBunga(g.pokok_sisa, g.bunga_persen, periode) };
+  const bunga = hitungBunga(g.pokok_sisa, g.bunga_persen, periode);
+  const telat = hariTelat(g.tgl_jatuh_tempo, sampai);
+  const denda = hitungDenda(g.pokok_sisa, dendaPersenPerHari, telat);
+  return { periode, bunga, denda, hariTelat: telat, pokok: g.pokok_sisa, total: g.pokok_sisa + bunga + denda };
 }
 
 /** Tambah N hari ke sebuah tanggal, return string YYYY-MM-DD. */

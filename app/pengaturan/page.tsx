@@ -12,6 +12,8 @@ export default function PengaturanPage() {
   const [periode, setPeriode] = useState("15");
   const [tempo, setTempo] = useState("30");
   const [admin, setAdmin] = useState("0");
+  const [adminPersen, setAdminPersen] = useState("0");
+  const [denda, setDenda] = useState("0");
   const [jenis, setJenis] = useState<string[]>(DEFAULT_JENIS);
   const [newJenis, setNewJenis] = useState("");
 
@@ -29,6 +31,8 @@ export default function PengaturanPage() {
       if (s.periode_hari) setPeriode(String(s.periode_hari));
       if (s.tempo_hari) setTempo(String(s.tempo_hari));
       if (s.biaya_admin !== undefined) setAdmin(String(s.biaya_admin));
+      if (s.biaya_admin_persen !== undefined) setAdminPersen(String(s.biaya_admin_persen));
+      if (s.denda_persen_per_hari !== undefined) setDenda(String(s.denda_persen_per_hari));
       if (Array.isArray(s.jenis_barang) && s.jenis_barang.length) setJenis(s.jenis_barang);
     }).finally(() => setLoading(false));
   }, []);
@@ -51,6 +55,8 @@ export default function PengaturanPage() {
         periode_hari: Number(periode || 15),
         tempo_hari: Number(tempo || 30),
         biaya_admin: Number(admin || 0),
+        biaya_admin_persen: Number(adminPersen || 0),
+        denda_persen_per_hari: Number(denda || 0),
         jenis_barang: jenis,
       }),
     });
@@ -105,11 +111,16 @@ export default function PengaturanPage() {
             <div><label className="label">Tempo (hari)</label>{num(tempo, setTempo)}</div>
             <div><label className="label">Plafon % taksiran</label>{num(plafon, setPlafon)}</div>
           </div>
-          <div>
-            <label className="label">Biaya admin (default)</label>
-            {num(admin, setAdmin)}
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="label">Biaya admin (nominal)</label>{num(admin, setAdmin)}</div>
+            <div><label className="label">Biaya admin % pinjaman</label>{num(adminPersen, setAdminPersen)}</div>
           </div>
-          <p className="text-[11px] text-slate-400">Nilai ini otomatis terisi saat membuat Gadai Baru (masih bisa diubah per transaksi).</p>
+          <div>
+            <label className="label">Denda telat (% pokok / hari)</label>
+            {num(denda, setDenda)}
+            <p className="text-[11px] text-slate-400 mt-1">Denda = sisa pokok × %/hari × hari telat, ditagih saat tebus/perpanjang/cicil.</p>
+          </div>
+          <p className="text-[11px] text-slate-400">Biaya admin = nominal + %×pinjaman, otomatis terisi di Gadai Baru (bisa diubah per transaksi).</p>
         </section>
 
         {/* Jenis barang */}

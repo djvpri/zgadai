@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { dbOne } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
-import { hitungBunga, periodeBerjalan, selisihHari, tambahHari } from "@/lib/gadai";
+import { hitungBunga, periodeBerjalan, selisihHari, tambahHari, hariTelat, hitungDenda } from "@/lib/gadai";
 
 // POST /api/gadai/[id]/bayar  { jenis, pokok_dibayar? }
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -17,10 +17,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!g) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
   if (g.status !== "aktif") return NextResponse.json({ error: "Gadai sudah tidak aktif" }, { status: 400 });
 
+  const setRow = await dbOne<any>(`SELECT settings FROM tenants WHERE id = $1`, [s.tenant_id]);
+  const dendaPersen = Number(setRow?.settings?.denda_persen_per_hari || 0);
+
   const today = new Date().toISOString().slice(0, 10);
   const pokokSisa = Number(g.pokok_sisa);
   const periode = periodeBerjalan(g.tgl_gadai, today, g.periode_hari);
   const bunga = hitungBunga(pokokSisa, Number(g.bunga_persen), periode);
+  const telat = hariTelat(g.tgl_jatuh_tempo, today);
+  const denda = hitungDenda(pokokSisa, dendaPersen, telat);
   const tenorHari = Math.max(1, selisihHari(g.tgl_gadai, g.tgl_jatuh_tempo));
   const jatuhBaru = tambahHari(today, tenorHari);
 
@@ -33,13 +38,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     if (jenis === "tebus") {
       pokokDibayar = pokokSisa;
-      total = pokokSisa + bunga;
+      total = pokokSisa + bunga + denda;
       await client.query(
         `UPDATE gadai SET status='lunas', pokok_sisa=0, tgl_lunas=$1, updated_at=now() WHERE id=$2`,
         [today, g.id]
       );
     } else if (jenis === "perpanjang") {
-      total = bunga;
+      total = bunga + denda;
       jatuhTempoBaru = jatuhBaru;
       await client.query(
         `UPDATE gadai SET tgl_gadai=$1, tgl_jatuh_tempo=$2, updated_at=now() WHERE id=$3`,
@@ -50,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       pokokDibayar = Math.round(Number(b.pokok_dibayar || 0));
       if (pokokDibayar <= 0) return failTx(client, "Nominal cicilan pokok harus > 0");
       if (pokokDibayar > pokokSisa) return failTx(client, "Cicilan melebihi sisa pokok");
-      total = bunga + pokokDibayar;
+      total = bunga + denda + pokokDibayar;
       const sisaBaru = pokokSisa - pokokDibayar;
       if (sisaBaru <= 0) {
         await client.query(
@@ -67,12 +72,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     await client.query(
-      `INSERT INTO pembayaran (tenant_id, gadai_id, tgl, jenis, bunga_dibayar, pokok_dibayar, total, jatuh_tempo_baru, keterangan, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [s.tenant_id, g.id, today, jenis, bunga, pokokDibayar, total, jatuhTempoBaru, b.keterangan || null, s.user_id]
+      `INSERT INTO pembayaran (tenant_id, gadai_id, tgl, jenis, bunga_dibayar, pokok_dibayar, denda_dibayar, total, jatuh_tempo_baru, keterangan, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [s.tenant_id, g.id, today, jenis, bunga, pokokDibayar, denda, total, jatuhTempoBaru, b.keterangan || null, s.user_id]
     );
     await client.query("COMMIT");
-    return NextResponse.json({ ok: true, jenis, bunga, pokok_dibayar: pokokDibayar, total, jatuh_tempo_baru: jatuhTempoBaru });
+    return NextResponse.json({ ok: true, jenis, bunga, denda, pokok_dibayar: pokokDibayar, total, jatuh_tempo_baru: jatuhTempoBaru });
   } catch (e: any) {
     await client.query("ROLLBACK").catch(() => {});
     return NextResponse.json({ error: e.message || "Gagal memproses" }, { status: 500 });
