@@ -5,7 +5,7 @@ function esc(s: unknown): string {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-interface SBGBarang { jenis: string; nama: string; berat_gram?: any; kadar?: string | null; taksiran: number; foto_url?: string | null }
+interface SBGBarang { jenis: string; nama: string; berat_gram?: any; kadar?: string | null; taksiran: number; foto_url?: string | null; foto_urls?: string[] | null }
 interface SBGGadai {
   no_sbg: string; tgl_gadai: string; tgl_jatuh_tempo: string;
   bunga_persen: number | string; periode_hari: number; taksiran: number; pokok: number; biaya_admin: number;
@@ -13,11 +13,18 @@ interface SBGGadai {
 }
 
 export function cetakSBG(g: SBGGadai, barang: SBGBarang[], usaha: string) {
-  const rows = barang.map((b) => `
+  const rows = barang.map((b) => {
+    const fotos = Array.isArray(b.foto_urls) && b.foto_urls.length ? b.foto_urls : (b.foto_url ? [b.foto_url] : []);
+    const thumbs = fotos.slice(0, 4).map((f) => `<img src="${esc(f)}" class="thumb">`).join("");
+    return `
     <tr>
-      <td>${b.foto_url ? `<img src="${esc(b.foto_url)}" class="thumb">` : ""}<span class="bnama">${esc(b.nama)}</span> <span class="muted">(${esc(b.jenis)}${b.kadar ? ", " + esc(b.kadar) : ""}${b.berat_gram ? ", " + esc(b.berat_gram) + "gr" : ""})</span></td>
+      <td>
+        <div><span class="bnama">${esc(b.nama)}</span> <span class="muted">(${esc(b.jenis)}${b.kadar ? ", " + esc(b.kadar) : ""}${b.berat_gram ? ", " + esc(b.berat_gram) + "gr" : ""})</span></div>
+        ${thumbs ? `<div class="thumbs">${thumbs}</div>` : ""}
+      </td>
       <td class="r tnum">${rupiah(b.taksiran)}</td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 
   const html = `<!doctype html><html lang="id"><head><meta charset="utf-8">
 <title>SBG ${esc(g.no_sbg)}</title>
@@ -35,8 +42,9 @@ export function cetakSBG(g: SBGGadai, barang: SBGBarang[], usaha: string) {
   .r { text-align:right; }
   .muted { color:#64748b; font-size:10px; }
   .tnum { font-variant-numeric: tabular-nums; }
-  .thumb { width:34px; height:34px; object-fit:cover; border-radius:4px; border:1px solid #cbd5e1; vertical-align:middle; margin-right:6px; }
-  .bnama { vertical-align:middle; }
+  .thumb { width:34px; height:34px; object-fit:cover; border-radius:4px; border:1px solid #cbd5e1; margin-right:4px; }
+  .thumbs { margin-top:4px; }
+  .bnama { font-weight:600; }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; margin:8px 0; }
   .row { display:flex; justify-content:space-between; border-bottom:1px dotted #cbd5e1; padding:2px 0; }
   .k { color:#64748b; }

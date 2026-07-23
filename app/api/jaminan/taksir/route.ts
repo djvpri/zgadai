@@ -18,11 +18,16 @@ export async function POST(req: NextRequest) {
   if (!key) return NextResponse.json({ error: "GEMINI_API_KEY belum diset" }, { status: 500 });
 
   const b = await req.json().catch(() => ({}));
-  const image = String(b.image || "");
+  // Terima banyak gambar (images[]) atau satu (image). Maks 4, buang prefix data URL.
+  const raw: string[] = Array.isArray(b.images) ? b.images : (b.image ? [b.image] : []);
+  const images = raw
+    .map((s) => String(s || "").replace(/^data:image\/[^;]+;base64,/, ""))
+    .filter(Boolean)
+    .slice(0, 4);
   const mimeType = String(b.mimeType || "image/jpeg");
-  if (!image) return NextResponse.json({ error: "Gambar barang wajib" }, { status: 400 });
-  if (!mimeType.startsWith("image/")) return NextResponse.json({ error: "File harus gambar" }, { status: 400 });
-  if (image.length > 8 * 1024 * 1024) return NextResponse.json({ error: "Gambar terlalu besar (maks ~6MB)" }, { status: 413 });
+  if (images.length === 0) return NextResponse.json({ error: "Gambar barang wajib" }, { status: 400 });
+  const totalLen = images.reduce((n, s) => n + s.length, 0);
+  if (totalLen > 12 * 1024 * 1024) return NextResponse.json({ error: "Gambar terlalu besar" }, { status: 413 });
 
   const prompt = `Kamu penaksir barang gadai (pegadaian) berpengalaman di Indonesia.
 Dari FOTO barang jaminan ini, identifikasi barang lalu beri TAKSIRAN nilai gadai yang KONSERVATIF
@@ -46,7 +51,10 @@ Aturan:
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: image } }] }],
+        contents: [{ parts: [
+          { text: prompt },
+          ...images.map((data) => ({ inline_data: { mime_type: mimeType, data } })),
+        ] }],
         generationConfig: {
           responseMimeType: "application/json",
           temperature: 0.2,

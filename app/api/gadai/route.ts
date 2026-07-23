@@ -61,13 +61,15 @@ export async function POST(req: NextRequest) {
     await client.query(`UPDATE gadai SET no_sbg = $1 WHERE id = $2`, [noSbg, id]);
 
     for (const x of barang) {
-      const foto = typeof x.foto === "string" && x.foto.startsWith("data:image/") && x.foto.length < 300_000
-        ? x.foto : null;
+      const fotos = (Array.isArray(x.fotos) ? x.fotos : [])
+        .filter((f: any) => typeof f === "string" && f.startsWith("data:image/") && f.length < 300_000)
+        .slice(0, 8);
       await client.query(
-        `INSERT INTO barang (gadai_id, jenis, nama, deskripsi, berat_gram, kadar, taksiran, foto_url)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        `INSERT INTO barang (gadai_id, jenis, nama, deskripsi, berat_gram, kadar, taksiran, foto_url, foto_urls)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
         [id, x.jenis || "lainnya", String(x.nama || "Barang"), x.deskripsi || null,
-         x.berat_gram || null, x.kadar || null, Math.round(Number(x.taksiran || 0)), foto]
+         x.berat_gram || null, x.kadar || null, Math.round(Number(x.taksiran || 0)),
+         fotos[0] || null, JSON.stringify(fotos)]
       );
     }
     await client.query("COMMIT");

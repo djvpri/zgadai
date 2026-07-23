@@ -3,13 +3,14 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import { rupiah, plafon, tambahHari, tanggalID, taksiranEmas } from "@/lib/gadai";
-import { compressImage, frameToDataUrl, stripDataUrl } from "@/lib/img";
+import { compressImage, frameToDataUrl } from "@/lib/img";
 
 interface Nasabah { id: number; nama: string; no_hp: string | null }
-interface Barang { jenis: string; nama: string; berat_gram: string; kadar: string; taksiran: string; foto: string }
+interface Barang { jenis: string; nama: string; berat_gram: string; kadar: string; taksiran: string; fotos: string[] }
 
 const JENIS = ["emas", "elektronik", "kendaraan", "lainnya"];
-const emptyBarang = (): Barang => ({ jenis: "emas", nama: "", berat_gram: "", kadar: "", taksiran: "", foto: "" });
+const MIN_FOTO = 4;
+const emptyBarang = (): Barang => ({ jenis: "emas", nama: "", berat_gram: "", kadar: "", taksiran: "", fotos: [] });
 
 export default function GadaiBaruPage() {
   const router = useRouter();
@@ -106,13 +107,14 @@ export default function GadaiBaruPage() {
     }));
   }
 
-  async function taksir(idx: number, dataUrl: string) {
+  async function taksir(idx: number, images: string[]) {
+    if (images.length === 0) return;
     setBusyIdx(idx);
     setNotes((n) => ({ ...n, [idx]: "" }));
     try {
       const r = await fetch("/api/jaminan/taksir", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: stripDataUrl(dataUrl), mimeType: "image/jpeg" }),
+        body: JSON.stringify({ images: images.slice(0, 4), mimeType: "image/jpeg" }),
       });
       const d = await r.json();
       if (!r.ok) { setNotes((n) => ({ ...n, [idx]: d.error || "Gagal menaksir" })); return; }
@@ -141,23 +143,30 @@ export default function GadaiBaruPage() {
     }
   }
 
+  // Ambil foto webcam → tambahkan ke galeri barang (modal tetap terbuka).
   function captureJaminan() {
     const v = videoRef.current;
     if (!v || !v.videoWidth || camIdx === null) return;
     const idx = camIdx;
     const dataUrl = frameToDataUrl(v, 640, 0.8);
-    setCamIdx(null);
-    setB(idx, { foto: dataUrl });
-    taksir(idx, dataUrl);
+    const cur = barang[idx]?.fotos || [];
+    setB(idx, { fotos: [...cur, dataUrl].slice(0, 8) });
+    if (cur.length === 0) taksir(idx, [dataUrl]); // auto-taksir dari foto pertama
   }
 
   async function uploadJaminan(idx: number, e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files || []);
     e.target.value = "";
-    if (!file) return;
-    const dataUrl = await compressImage(file, 640, 0.8);
-    setB(idx, { foto: dataUrl });
-    taksir(idx, dataUrl);
+    if (!files.length) return;
+    const cur = barang[idx]?.fotos || [];
+    const added: string[] = [];
+    for (const f of files.slice(0, 8)) added.push(await compressImage(f, 640, 0.8));
+    setB(idx, { fotos: [...cur, ...added].slice(0, 8) });
+    if (cur.length === 0 && added.length) taksir(idx, [added[0]]);
+  }
+
+  function removeFoto(i: number, fi: number) {
+    setBarang((prev) => prev.map((b, idx) => (idx === i ? { ...b, fotos: b.fotos.filter((_, k) => k !== fi) } : b)));
   }
 
   async function buatNasabah() {
@@ -177,6 +186,7 @@ export default function GadaiBaruPage() {
     if (!nasabah) { setErr("Pilih nasabah dulu"); return; }
     const validBarang = barang.filter((b) => b.nama.trim() && Number(b.taksiran) > 0);
     if (validBarang.length === 0) { setErr("Isi minimal 1 barang dengan taksiran"); return; }
+    if (validBarang.some((b) => b.fotos.length < MIN_FOTO)) { setErr(`Setiap barang butuh minimal ${MIN_FOTO} foto`); return; }
     if (Number(pokok) <= 0) { setErr("Isi uang pinjaman"); return; }
     setSaving(true);
     const r = await fetch("/api/gadai", {
@@ -187,7 +197,7 @@ export default function GadaiBaruPage() {
         pokok: Number(pokok),
         barang: validBarang.map((b) => ({
           jenis: b.jenis, nama: b.nama, berat_gram: b.berat_gram || null,
-          kadar: b.kadar || null, taksiran: Number(b.taksiran), foto: b.foto || null,
+          kadar: b.kadar || null, taksiran: Number(b.taksiran), fotos: b.fotos,
         })),
       }),
     });
@@ -267,59 +277,74 @@ export default function GadaiBaruPage() {
             <p className="text-[11px] text-slate-400 mb-3 -mt-1"><i className="bi bi-stars text-gold-500 me-1" />Foto barang → AI identifikasi jenis, nama & taksiran otomatis (tetap verifikasi manual).</p>
             <div className="space-y-3">
               {barang.map((b, i) => (
-                <div key={i} className="border border-slate-200 rounded-xl p-3">
-                  <div className="flex gap-3">
-                    {/* Foto jaminan + tombol */}
-                    <div className="shrink-0 w-16">
-                      <div className="w-16 h-16 rounded-lg bg-navy-50 border border-slate-200 overflow-hidden grid place-items-center">
-                        {b.foto ? <img src={b.foto} alt="" className="w-full h-full object-cover" /> : <i className="bi bi-image text-slate-300 text-xl" />}
-                      </div>
-                      <div className="flex gap-1 mt-1">
-                        <button type="button" title="Kamera" onClick={() => { setErr(""); setCamIdx(i); }}
-                          className="flex-1 text-[11px] py-1 rounded bg-slate-100 hover:bg-slate-200 text-navy-700"><i className="bi bi-camera" /></button>
-                        <label title="Upload" className="flex-1 text-[11px] py-1 rounded bg-slate-100 hover:bg-slate-200 text-navy-700 text-center cursor-pointer">
-                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => uploadJaminan(i, e)} />
-                          <i className="bi bi-upload" />
-                        </label>
-                      </div>
-                    </div>
+                <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-3">
+                  <div className="flex gap-2">
+                    <select className="input max-w-[130px] capitalize" value={b.jenis} onChange={(e) => setB(i, { jenis: e.target.value })}>
+                      {(jenisOpts.includes(b.jenis) ? jenisOpts : [b.jenis, ...jenisOpts]).map((j) => <option key={j} value={j} className="capitalize">{j}</option>)}
+                    </select>
+                    <input className="input flex-1 min-w-0" placeholder="Nama barang" value={b.nama} onChange={(e) => setB(i, { nama: e.target.value })} />
+                    {barang.length > 1 && (
+                      <button className="btn-ghost px-3" onClick={() => setBarang(barang.filter((_, idx) => idx !== i))}>
+                        <i className="bi bi-trash3 text-red-500" />
+                      </button>
+                    )}
+                  </div>
 
-                    {/* Field */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex gap-2 mb-2">
-                        <select className="input max-w-[130px] capitalize" value={b.jenis} onChange={(e) => setB(i, { jenis: e.target.value })}>
-                          {(jenisOpts.includes(b.jenis) ? jenisOpts : [b.jenis, ...jenisOpts]).map((j) => <option key={j} value={j} className="capitalize">{j}</option>)}
-                        </select>
-                        <input className="input flex-1 min-w-0" placeholder="Nama barang" value={b.nama} onChange={(e) => setB(i, { nama: e.target.value })} />
-                        {barang.length > 1 && (
-                          <button className="btn-ghost px-3" onClick={() => setBarang(barang.filter((_, idx) => idx !== i))}>
-                            <i className="bi bi-trash3 text-red-500" />
-                          </button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {b.jenis === "emas" && (
-                          <>
-                            <input className="input" placeholder="Berat (gr)" value={b.berat_gram} onChange={(e) => setEmasField(i, { berat_gram: e.target.value.replace(/[^\d.]/g, "") })} />
-                            <input className="input" placeholder="Kadar (mis. 22K)" value={b.kadar} onChange={(e) => setEmasField(i, { kadar: e.target.value })} />
-                          </>
-                        )}
-                        <input className={`input tnum ${b.jenis === "emas" ? "" : "col-span-3"}`} inputMode="numeric"
-                          placeholder="Taksiran (Rp)" value={b.taksiran}
-                          onChange={(e) => setB(i, { taksiran: e.target.value.replace(/\D/g, "") })} />
-                      </div>
-                      {b.jenis === "emas" && (
-                        <p className="text-[11px] text-slate-400 mt-1.5">
-                          {hargaEmas > 0
-                            ? <>Taksiran otomatis: berat × kadar × {rupiah(hargaEmas)}/gr</>
-                            : <>Set harga emas/gram di <a href="/pengaturan" className="text-gold-600 underline">Pengaturan</a> untuk taksir otomatis.</>}
-                        </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {b.jenis === "emas" && (
+                      <>
+                        <input className="input" placeholder="Berat (gr)" value={b.berat_gram} onChange={(e) => setEmasField(i, { berat_gram: e.target.value.replace(/[^\d.]/g, "") })} />
+                        <input className="input" placeholder="Kadar (mis. 22K)" value={b.kadar} onChange={(e) => setEmasField(i, { kadar: e.target.value })} />
+                      </>
+                    )}
+                    <input className={`input tnum ${b.jenis === "emas" ? "" : "col-span-3"}`} inputMode="numeric"
+                      placeholder="Taksiran (Rp)" value={b.taksiran}
+                      onChange={(e) => setB(i, { taksiran: e.target.value.replace(/\D/g, "") })} />
+                  </div>
+                  {b.jenis === "emas" && (
+                    <p className="text-[11px] text-slate-400 -mt-1">
+                      {hargaEmas > 0
+                        ? <>Taksiran otomatis: berat × kadar × {rupiah(hargaEmas)}/gr</>
+                        : <>Set harga emas/gram di <a href="/pengaturan" className="text-gold-600 underline">Pengaturan</a> untuk taksir otomatis.</>}
+                    </p>
+                  )}
+
+                  {/* Galeri foto (min 4) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-semibold text-slate-500">Foto jaminan ({b.fotos.length}/{MIN_FOTO} min)</span>
+                      {b.fotos.length > 0 && (
+                        <button type="button" className="text-[11px] text-navy-600 hover:underline" onClick={() => taksir(i, b.fotos)}>
+                          <i className="bi bi-stars me-1" />Taksir ulang
+                        </button>
                       )}
                     </div>
+                    <div className="flex flex-wrap gap-2">
+                      {b.fotos.map((f, fi) => (
+                        <div key={fi} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200">
+                          <img src={f} alt="" className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => removeFoto(i, fi)}
+                            className="absolute top-0 right-0 bg-black/60 text-white w-5 h-5 grid place-items-center rounded-bl-lg"><i className="bi bi-x text-xs" /></button>
+                        </div>
+                      ))}
+                      {b.fotos.length < 8 && (
+                        <>
+                          <button type="button" onClick={() => { setErr(""); setCamIdx(i); }}
+                            className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 grid place-items-center text-slate-400 hover:border-navy-400 hover:text-navy-500"><i className="bi bi-camera text-lg" /></button>
+                          <label className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 grid place-items-center text-slate-400 hover:border-navy-400 hover:text-navy-500 cursor-pointer">
+                            <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(e) => uploadJaminan(i, e)} />
+                            <i className="bi bi-upload text-lg" />
+                          </label>
+                        </>
+                      )}
+                    </div>
+                    {b.fotos.length < MIN_FOTO && (
+                      <p className="text-[11px] text-amber-600 mt-1"><i className="bi bi-exclamation-circle me-1" />Minimal {MIN_FOTO} foto (kurang {MIN_FOTO - b.fotos.length}).</p>
+                    )}
                   </div>
 
                   {(busyIdx === i || notes[i]) && (
-                    <div className="mt-2 text-xs flex items-center gap-2">
+                    <div className="text-xs flex items-center gap-2">
                       {busyIdx === i ? (
                         <span className="flex items-center gap-2 text-navy-600"><span className="w-3.5 h-3.5 border-2 border-navy-300 border-t-navy-700 rounded-full animate-spin" /> Mengidentifikasi & menaksir dengan AI…</span>
                       ) : (
@@ -402,11 +427,13 @@ export default function GadaiBaruPage() {
             <div className="relative bg-black aspect-[4/3]">
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
               <div className="absolute inset-6 border-2 border-white/70 rounded-lg pointer-events-none" />
-              <div className="absolute bottom-2 inset-x-0 text-center text-white/80 text-xs">Posisikan barang jaminan di dalam kotak</div>
+              <div className="absolute bottom-2 inset-x-0 text-center text-white/80 text-xs">
+                {camIdx !== null ? `${barang[camIdx]?.fotos.length || 0} foto diambil` : ""} · posisikan barang di dalam kotak
+              </div>
             </div>
             <div className="flex gap-2 p-3">
-              <button type="button" className="btn-ghost flex-1" onClick={() => setCamIdx(null)}>Tutup</button>
-              <button type="button" className="btn-gold flex-1" onClick={captureJaminan}><i className="bi bi-camera" /> Ambil & Taksir</button>
+              <button type="button" className="btn-ghost flex-1" onClick={() => setCamIdx(null)}>Selesai</button>
+              <button type="button" className="btn-gold flex-1" onClick={captureJaminan}><i className="bi bi-camera" /> Ambil Foto</button>
             </div>
           </div>
         </div>
