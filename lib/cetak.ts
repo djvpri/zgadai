@@ -50,10 +50,11 @@ export function cetakSBG(g: SBGGadai, barang: SBGBarang[], usaha: string) {
   .k { color:#64748b; }
   .v { font-weight:600; }
   .box { border:1px solid #cbd5e1; border-radius:6px; padding:8px 10px; margin-top:6px; }
-  .ttd { display:flex; justify-content:space-between; margin-top:24px; text-align:center; }
-  .ttd div { width:45%; }
-  .ttd .line { margin-top:40px; border-top:1px solid #0b1a3a; padding-top:2px; }
-  .note { font-size:9px; color:#64748b; margin-top:10px; text-align:center; }
+  .ttd { display:flex; justify-content:space-between; margin-top:20px; }
+  .ttd .col { width:46%; text-align:center; }
+  .ttd .role { margin-bottom:50px; color:#334155; }
+  .ttd .sign { border-top:1px solid #0b1a3a; padding-top:3px; font-weight:600; }
+  .note { font-size:9px; color:#64748b; margin-top:16px; text-align:center; }
 </style></head><body>
   <div class="head">
     <div><div class="brand">${esc(usaha)}</div><div class="muted">Layanan Gadai</div></div>
@@ -81,8 +82,8 @@ export function cetakSBG(g: SBGGadai, barang: SBGBarang[], usaha: string) {
   </div>
 
   <div class="ttd">
-    <div>Nasabah<div class="line">${esc(g.nasabah_nama)}</div></div>
-    <div>Petugas<div class="line">${esc(usaha)}</div></div>
+    <div class="col"><div class="role">Nasabah,</div><div class="sign">${esc(g.nasabah_nama)}</div></div>
+    <div class="col"><div class="role">Petugas,</div><div class="sign">${esc(usaha)}</div></div>
   </div>
   <div class="note">Barang dapat ditebus/diperpanjang sebelum jatuh tempo. Lewat tempo dapat dilelang sesuai ketentuan.</div>
 </body></html>`;
