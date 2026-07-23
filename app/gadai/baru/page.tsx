@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import { rupiah, plafon, tambahHari, tanggalID } from "@/lib/gadai";
+import { rupiah, plafon, tambahHari, tanggalID, taksiranEmas } from "@/lib/gadai";
 import { compressImage, frameToDataUrl, stripDataUrl } from "@/lib/img";
 
 interface Nasabah { id: number; nama: string; no_hp: string | null }
@@ -31,6 +31,13 @@ export default function GadaiBaruPage() {
   const [camIdx, setCamIdx] = useState<number | null>(null);
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
   const [notes, setNotes] = useState<Record<number, string>>({});
+  const [hargaEmas, setHargaEmas] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/settings").then((r) => r.json()).then((d) => {
+      setHargaEmas(Number(d.settings?.harga_emas_per_gram || 0));
+    }).catch(() => {});
+  }, []);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -64,6 +71,19 @@ export default function GadaiBaruPage() {
     setBarang((prev) => prev.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
   }
 
+  // Emas: update field lalu hitung ulang taksiran = berat × kadar × harga.
+  function setEmasField(i: number, patch: Partial<Barang>) {
+    setBarang((prev) => prev.map((b, idx) => {
+      if (idx !== i) return b;
+      const nb = { ...b, ...patch };
+      if (nb.jenis === "emas" && hargaEmas > 0) {
+        const t = taksiranEmas(Number(nb.berat_gram), nb.kadar, hargaEmas);
+        if (t > 0) nb.taksiran = String(t);
+      }
+      return nb;
+    }));
+  }
+
   async function taksir(idx: number, dataUrl: string) {
     setBusyIdx(idx);
     setNotes((n) => ({ ...n, [idx]: "" }));
@@ -74,14 +94,23 @@ export default function GadaiBaruPage() {
       });
       const d = await r.json();
       if (!r.ok) { setNotes((n) => ({ ...n, [idx]: d.error || "Gagal menaksir" })); return; }
-      setBarang((prev) => prev.map((b, i) => (i === idx ? {
-        ...b,
-        jenis: d.jenis || b.jenis,
-        nama: d.nama || b.nama,
-        kadar: d.kadar || b.kadar,
-        berat_gram: d.berat_gram != null ? String(d.berat_gram) : b.berat_gram,
-        taksiran: d.taksiran ? String(d.taksiran) : b.taksiran,
-      } : b)));
+      setBarang((prev) => prev.map((b, i) => {
+        if (i !== idx) return b;
+        const nb = {
+          ...b,
+          jenis: d.jenis || b.jenis,
+          nama: d.nama || b.nama,
+          kadar: d.kadar || b.kadar,
+          berat_gram: d.berat_gram != null ? String(d.berat_gram) : b.berat_gram,
+          taksiran: d.taksiran ? String(d.taksiran) : b.taksiran,
+        };
+        // Emas + harga tersetel: pakai rumus (lebih andal dari tebakan AI).
+        if (nb.jenis === "emas" && hargaEmas > 0) {
+          const t = taksiranEmas(Number(nb.berat_gram), nb.kadar, hargaEmas);
+          if (t > 0) nb.taksiran = String(t);
+        }
+        return nb;
+      }));
       setNotes((n) => ({ ...n, [idx]: d.catatan || "Taksiran AI — verifikasi & sesuaikan." }));
     } catch {
       setNotes((n) => ({ ...n, [idx]: "Gagal memproses gambar" }));
@@ -249,14 +278,21 @@ export default function GadaiBaruPage() {
                       <div className="grid grid-cols-3 gap-2">
                         {b.jenis === "emas" && (
                           <>
-                            <input className="input" placeholder="Berat (gr)" value={b.berat_gram} onChange={(e) => setB(i, { berat_gram: e.target.value })} />
-                            <input className="input" placeholder="Kadar (mis. 22K)" value={b.kadar} onChange={(e) => setB(i, { kadar: e.target.value })} />
+                            <input className="input" placeholder="Berat (gr)" value={b.berat_gram} onChange={(e) => setEmasField(i, { berat_gram: e.target.value.replace(/[^\d.]/g, "") })} />
+                            <input className="input" placeholder="Kadar (mis. 22K)" value={b.kadar} onChange={(e) => setEmasField(i, { kadar: e.target.value })} />
                           </>
                         )}
                         <input className={`input tnum ${b.jenis === "emas" ? "" : "col-span-3"}`} inputMode="numeric"
                           placeholder="Taksiran (Rp)" value={b.taksiran}
                           onChange={(e) => setB(i, { taksiran: e.target.value.replace(/\D/g, "") })} />
                       </div>
+                      {b.jenis === "emas" && (
+                        <p className="text-[11px] text-slate-400 mt-1.5">
+                          {hargaEmas > 0
+                            ? <>Taksiran otomatis: berat × kadar × {rupiah(hargaEmas)}/gr</>
+                            : <>Set harga emas/gram di <a href="/pengaturan" className="text-gold-600 underline">Pengaturan</a> untuk taksir otomatis.</>}
+                        </p>
+                      )}
                     </div>
                   </div>
 

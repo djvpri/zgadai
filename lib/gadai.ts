@@ -84,6 +84,23 @@ export const STATUS_BADGE: Record<string, { label: string; cls: string; icon: st
   lewat:  { label: "Lewat Tempo", cls: "bg-red-50 text-red-700 border border-red-200",              icon: "bi-exclamation-triangle" },
 };
 
+/** Fraksi kemurnian dari label kadar ("22K" -> 0.9167, "750" -> 0.75). 0 = tak dikenali. */
+export function kadarFraction(kadar: string | null | undefined): number {
+  const s = String(kadar || "").toUpperCase().replace(/\s/g, "");
+  const kMatch = s.match(/(\d{1,2})K/);
+  if (kMatch) return Math.min(1, Number(kMatch[1]) / 24);
+  const n = Number(s.replace(/[^\d]/g, ""));
+  if (!isNaN(n) && n >= 300 && n <= 1000) return n / 1000; // per-seribu (999/916/750/...)
+  return 0;
+}
+
+/** Taksiran emas = berat × fraksi kadar × harga per gram (emas murni). */
+export function taksiranEmas(berat: number, kadar: string, hargaPerGram: number): number {
+  const frac = kadarFraction(kadar);
+  if (!berat || !frac || !hargaPerGram) return 0;
+  return Math.round(berat * frac * hargaPerGram);
+}
+
 export function tanggalID(tgl: string | Date | null | undefined): string {
   if (!tgl) return "-";
   return new Date(tgl).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
