@@ -32,10 +32,19 @@ export default function GadaiBaruPage() {
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [hargaEmas, setHargaEmas] = useState(0);
+  const [jenisOpts, setJenisOpts] = useState<string[]>(JENIS);
+  const [plafonPersen, setPlafonPersen] = useState(90);
 
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then((d) => {
-      setHargaEmas(Number(d.settings?.harga_emas_per_gram || 0));
+      const s = d.settings || {};
+      setHargaEmas(Number(s.harga_emas_per_gram || 0));
+      if (Array.isArray(s.jenis_barang) && s.jenis_barang.length) setJenisOpts(s.jenis_barang);
+      if (s.plafon_persen) setPlafonPersen(Number(s.plafon_persen));
+      if (s.bunga_persen !== undefined) setBunga(String(s.bunga_persen));
+      if (s.periode_hari) setPeriodeHari(Number(s.periode_hari));
+      if (s.tempo_hari) setTempoHari(Number(s.tempo_hari));
+      if (s.biaya_admin !== undefined) setBiayaAdmin(String(s.biaya_admin));
     }).catch(() => {});
   }, []);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -64,7 +73,7 @@ export default function GadaiBaruPage() {
   }, [q, nasabah]);
 
   const totalTaksiran = barang.reduce((s, b) => s + Number(b.taksiran || 0), 0);
-  const saranPlafon = plafon(totalTaksiran, 90);
+  const saranPlafon = plafon(totalTaksiran, plafonPersen);
   const jatuhTempo = tambahHari(tglGadai, tempoHari);
 
   function setB(i: number, patch: Partial<Barang>) {
@@ -266,7 +275,7 @@ export default function GadaiBaruPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex gap-2 mb-2">
                         <select className="input max-w-[130px] capitalize" value={b.jenis} onChange={(e) => setB(i, { jenis: e.target.value })}>
-                          {JENIS.map((j) => <option key={j} value={j} className="capitalize">{j}</option>)}
+                          {(jenisOpts.includes(b.jenis) ? jenisOpts : [b.jenis, ...jenisOpts]).map((j) => <option key={j} value={j} className="capitalize">{j}</option>)}
                         </select>
                         <input className="input flex-1 min-w-0" placeholder="Nama barang" value={b.nama} onChange={(e) => setB(i, { nama: e.target.value })} />
                         {barang.length > 1 && (
@@ -331,7 +340,7 @@ export default function GadaiBaruPage() {
               </div>
               <input className="input tnum mt-1" inputMode="numeric" placeholder="0"
                 value={pokok} onChange={(e) => setPokok(e.target.value.replace(/\D/g, ""))} />
-              <p className="text-[11px] text-slate-400 mt-1">Plafon = 90% taksiran</p>
+              <p className="text-[11px] text-slate-400 mt-1">Plafon = {plafonPersen}% taksiran</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

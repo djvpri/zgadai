@@ -18,9 +18,21 @@ export async function POST(req: NextRequest) {
 
   const b = await req.json().catch(() => ({}));
   const patch: Record<string, unknown> = {};
-  if (b.harga_emas_per_gram !== undefined) {
-    patch.harga_emas_per_gram = Math.max(0, Math.round(Number(b.harga_emas_per_gram) || 0));
+  const numMin = (v: any, min = 0) => Math.max(min, Math.round(Number(v) || 0));
+
+  if (b.harga_emas_per_gram !== undefined) patch.harga_emas_per_gram = numMin(b.harga_emas_per_gram);
+  if (b.plafon_persen !== undefined) patch.plafon_persen = Math.min(100, Math.max(1, Math.round(Number(b.plafon_persen) || 90)));
+  if (b.bunga_persen !== undefined) patch.bunga_persen = Math.max(0, Number(b.bunga_persen) || 0);
+  if (b.periode_hari !== undefined) patch.periode_hari = numMin(b.periode_hari, 1);
+  if (b.tempo_hari !== undefined) patch.tempo_hari = numMin(b.tempo_hari, 1);
+  if (b.biaya_admin !== undefined) patch.biaya_admin = numMin(b.biaya_admin);
+  if (Array.isArray(b.jenis_barang)) {
+    const arr = Array.from(new Set(
+      b.jenis_barang.map((x: any) => String(x || "").trim().toLowerCase()).filter(Boolean)
+    )).slice(0, 20);
+    if (arr.length) patch.jenis_barang = arr;
   }
+
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Tidak ada yang diubah" }, { status: 400 });
 
   await dbRun(`UPDATE tenants SET settings = COALESCE(settings,'{}'::jsonb) || $1::jsonb, updated_at = now() WHERE id = $2`,
