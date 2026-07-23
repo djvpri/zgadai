@@ -61,11 +61,13 @@ export async function POST(req: NextRequest) {
     await client.query(`UPDATE gadai SET no_sbg = $1 WHERE id = $2`, [noSbg, id]);
 
     for (const x of barang) {
+      const foto = typeof x.foto === "string" && x.foto.startsWith("data:image/") && x.foto.length < 300_000
+        ? x.foto : null;
       await client.query(
-        `INSERT INTO barang (gadai_id, jenis, nama, deskripsi, berat_gram, kadar, taksiran)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        `INSERT INTO barang (gadai_id, jenis, nama, deskripsi, berat_gram, kadar, taksiran, foto_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [id, x.jenis || "lainnya", String(x.nama || "Barang"), x.deskripsi || null,
-         x.berat_gram || null, x.kadar || null, Math.round(Number(x.taksiran || 0))]
+         x.berat_gram || null, x.kadar || null, Math.round(Number(x.taksiran || 0)), foto]
       );
     }
     await client.query("COMMIT");

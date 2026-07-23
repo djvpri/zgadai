@@ -1,14 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import { rupiah, plafon, tambahHari, tanggalID } from "@/lib/gadai";
+import { compressImage, frameToDataUrl, stripDataUrl } from "@/lib/img";
 
 interface Nasabah { id: number; nama: string; no_hp: string | null }
-interface Barang { jenis: string; nama: string; berat_gram: string; kadar: string; taksiran: string }
+interface Barang { jenis: string; nama: string; berat_gram: string; kadar: string; taksiran: string; foto: string }
 
 const JENIS = ["emas", "elektronik", "kendaraan", "lainnya"];
-const emptyBarang = (): Barang => ({ jenis: "emas", nama: "", berat_gram: "", kadar: "", taksiran: "" });
+const emptyBarang = (): Barang => ({ jenis: "emas", nama: "", berat_gram: "", kadar: "", taksiran: "", foto: "" });
 
 export default function GadaiBaruPage() {
   const router = useRouter();
@@ -27,6 +28,25 @@ export default function GadaiBaruPage() {
   const [pokok, setPokok] = useState("");
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
+  const [camIdx, setCamIdx] = useState<number | null>(null);
+  const [busyIdx, setBusyIdx] = useState<number | null>(null);
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Webcam untuk foto barang jaminan (kamera belakang).
+  useEffect(() => {
+    if (camIdx === null) return;
+    let active = true;
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
+      .then((stream) => {
+        if (!active) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(() => {}); }
+      })
+      .catch(() => { setErr("Tidak bisa mengakses kamera. Izinkan akses atau pakai Upload."); setCamIdx(null); });
+    return () => { active = false; streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; };
+  }, [camIdx]);
 
   useEffect(() => {
     if (nasabah) return;
@@ -42,6 +62,51 @@ export default function GadaiBaruPage() {
 
   function setB(i: number, patch: Partial<Barang>) {
     setBarang((prev) => prev.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
+  }
+
+  async function taksir(idx: number, dataUrl: string) {
+    setBusyIdx(idx);
+    setNotes((n) => ({ ...n, [idx]: "" }));
+    try {
+      const r = await fetch("/api/jaminan/taksir", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: stripDataUrl(dataUrl), mimeType: "image/jpeg" }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setNotes((n) => ({ ...n, [idx]: d.error || "Gagal menaksir" })); return; }
+      setBarang((prev) => prev.map((b, i) => (i === idx ? {
+        ...b,
+        jenis: d.jenis || b.jenis,
+        nama: d.nama || b.nama,
+        kadar: d.kadar || b.kadar,
+        berat_gram: d.berat_gram != null ? String(d.berat_gram) : b.berat_gram,
+        taksiran: d.taksiran ? String(d.taksiran) : b.taksiran,
+      } : b)));
+      setNotes((n) => ({ ...n, [idx]: d.catatan || "Taksiran AI — verifikasi & sesuaikan." }));
+    } catch {
+      setNotes((n) => ({ ...n, [idx]: "Gagal memproses gambar" }));
+    } finally {
+      setBusyIdx(null);
+    }
+  }
+
+  function captureJaminan() {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth || camIdx === null) return;
+    const idx = camIdx;
+    const dataUrl = frameToDataUrl(v, 640, 0.8);
+    setCamIdx(null);
+    setB(idx, { foto: dataUrl });
+    taksir(idx, dataUrl);
+  }
+
+  async function uploadJaminan(idx: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const dataUrl = await compressImage(file, 640, 0.8);
+    setB(idx, { foto: dataUrl });
+    taksir(idx, dataUrl);
   }
 
   async function buatNasabah() {
@@ -71,7 +136,7 @@ export default function GadaiBaruPage() {
         pokok: Number(pokok),
         barang: validBarang.map((b) => ({
           jenis: b.jenis, nama: b.nama, berat_gram: b.berat_gram || null,
-          kadar: b.kadar || null, taksiran: Number(b.taksiran),
+          kadar: b.kadar || null, taksiran: Number(b.taksiran), foto: b.foto || null,
         })),
       }),
     });
@@ -148,31 +213,62 @@ export default function GadaiBaruPage() {
                 <i className="bi bi-plus-lg me-1" />Tambah barang
               </button>
             </div>
+            <p className="text-[11px] text-slate-400 mb-3 -mt-1"><i className="bi bi-stars text-gold-500 me-1" />Foto barang → AI identifikasi jenis, nama & taksiran otomatis (tetap verifikasi manual).</p>
             <div className="space-y-3">
               {barang.map((b, i) => (
                 <div key={i} className="border border-slate-200 rounded-xl p-3">
-                  <div className="flex gap-2 mb-2">
-                    <select className="input max-w-[140px] capitalize" value={b.jenis} onChange={(e) => setB(i, { jenis: e.target.value })}>
-                      {JENIS.map((j) => <option key={j} value={j} className="capitalize">{j}</option>)}
-                    </select>
-                    <input className="input flex-1" placeholder="Nama barang" value={b.nama} onChange={(e) => setB(i, { nama: e.target.value })} />
-                    {barang.length > 1 && (
-                      <button className="btn-ghost px-3" onClick={() => setBarang(barang.filter((_, idx) => idx !== i))}>
-                        <i className="bi bi-trash3 text-red-500" />
-                      </button>
-                    )}
+                  <div className="flex gap-3">
+                    {/* Foto jaminan + tombol */}
+                    <div className="shrink-0 w-16">
+                      <div className="w-16 h-16 rounded-lg bg-navy-50 border border-slate-200 overflow-hidden grid place-items-center">
+                        {b.foto ? <img src={b.foto} alt="" className="w-full h-full object-cover" /> : <i className="bi bi-image text-slate-300 text-xl" />}
+                      </div>
+                      <div className="flex gap-1 mt-1">
+                        <button type="button" title="Kamera" onClick={() => { setErr(""); setCamIdx(i); }}
+                          className="flex-1 text-[11px] py-1 rounded bg-slate-100 hover:bg-slate-200 text-navy-700"><i className="bi bi-camera" /></button>
+                        <label title="Upload" className="flex-1 text-[11px] py-1 rounded bg-slate-100 hover:bg-slate-200 text-navy-700 text-center cursor-pointer">
+                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => uploadJaminan(i, e)} />
+                          <i className="bi bi-upload" />
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Field */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex gap-2 mb-2">
+                        <select className="input max-w-[130px] capitalize" value={b.jenis} onChange={(e) => setB(i, { jenis: e.target.value })}>
+                          {JENIS.map((j) => <option key={j} value={j} className="capitalize">{j}</option>)}
+                        </select>
+                        <input className="input flex-1 min-w-0" placeholder="Nama barang" value={b.nama} onChange={(e) => setB(i, { nama: e.target.value })} />
+                        {barang.length > 1 && (
+                          <button className="btn-ghost px-3" onClick={() => setBarang(barang.filter((_, idx) => idx !== i))}>
+                            <i className="bi bi-trash3 text-red-500" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {b.jenis === "emas" && (
+                          <>
+                            <input className="input" placeholder="Berat (gr)" value={b.berat_gram} onChange={(e) => setB(i, { berat_gram: e.target.value })} />
+                            <input className="input" placeholder="Kadar (mis. 22K)" value={b.kadar} onChange={(e) => setB(i, { kadar: e.target.value })} />
+                          </>
+                        )}
+                        <input className={`input tnum ${b.jenis === "emas" ? "" : "col-span-3"}`} inputMode="numeric"
+                          placeholder="Taksiran (Rp)" value={b.taksiran}
+                          onChange={(e) => setB(i, { taksiran: e.target.value.replace(/\D/g, "") })} />
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {b.jenis === "emas" && (
-                      <>
-                        <input className="input" placeholder="Berat (gr)" value={b.berat_gram} onChange={(e) => setB(i, { berat_gram: e.target.value })} />
-                        <input className="input" placeholder="Kadar (mis. 22K)" value={b.kadar} onChange={(e) => setB(i, { kadar: e.target.value })} />
-                      </>
-                    )}
-                    <input className={`input tnum ${b.jenis === "emas" ? "" : "col-span-3"}`} inputMode="numeric"
-                      placeholder="Taksiran (Rp)" value={b.taksiran}
-                      onChange={(e) => setB(i, { taksiran: e.target.value.replace(/\D/g, "") })} />
-                  </div>
+
+                  {(busyIdx === i || notes[i]) && (
+                    <div className="mt-2 text-xs flex items-center gap-2">
+                      {busyIdx === i ? (
+                        <span className="flex items-center gap-2 text-navy-600"><span className="w-3.5 h-3.5 border-2 border-navy-300 border-t-navy-700 rounded-full animate-spin" /> Mengidentifikasi & menaksir dengan AI…</span>
+                      ) : (
+                        <span className="text-amber-600"><i className="bi bi-info-circle me-1" />{notes[i]}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -241,6 +337,22 @@ export default function GadaiBaruPage() {
           </section>
         </div>
       </div>
+      {/* Modal kamera jaminan */}
+      {camIdx !== null && (
+        <div className="fixed inset-0 z-[60] bg-black/85 grid place-items-center p-4">
+          <div className="w-full max-w-md bg-navy-950 rounded-2xl overflow-hidden">
+            <div className="relative bg-black aspect-[4/3]">
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+              <div className="absolute inset-6 border-2 border-white/70 rounded-lg pointer-events-none" />
+              <div className="absolute bottom-2 inset-x-0 text-center text-white/80 text-xs">Posisikan barang jaminan di dalam kotak</div>
+            </div>
+            <div className="flex gap-2 p-3">
+              <button type="button" className="btn-ghost flex-1" onClick={() => setCamIdx(null)}>Tutup</button>
+              <button type="button" className="btn-gold flex-1" onClick={captureJaminan}><i className="bi bi-camera" /> Ambil & Taksir</button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
