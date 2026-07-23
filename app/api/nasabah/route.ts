@@ -1,0 +1,36 @@
+import { NextRequest, NextResponse } from "next/server";
+import { dbAll, dbOne } from "@/lib/db";
+import { currentSession } from "@/lib/auth";
+
+export async function GET(req: NextRequest) {
+  const s = await currentSession();
+  if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const q = (req.nextUrl.searchParams.get("q") || "").trim().toLowerCase();
+
+  const rows = await dbAll(
+    `SELECT n.*,
+       (SELECT COUNT(*)::int FROM gadai g WHERE g.nasabah_id = n.id AND g.status = 'aktif') AS gadai_aktif
+     FROM nasabah n
+     WHERE n.tenant_id = $1
+       AND ($2 = '' OR lower(n.nama) LIKE '%'||$2||'%' OR n.no_hp LIKE '%'||$2||'%' OR n.no_ktp LIKE '%'||$2||'%')
+     ORDER BY n.created_at DESC
+     LIMIT 200`,
+    [s.tenant_id, q]
+  );
+  return NextResponse.json({ nasabah: rows });
+}
+
+export async function POST(req: NextRequest) {
+  const s = await currentSession();
+  if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const b = await req.json().catch(() => ({}));
+  const nama = String(b.nama || "").trim();
+  if (!nama) return NextResponse.json({ error: "Nama wajib diisi" }, { status: 400 });
+
+  const row = await dbOne(
+    `INSERT INTO nasabah (tenant_id, nama, no_ktp, no_hp, alamat, catatan)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [s.tenant_id, nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null]
+  );
+  return NextResponse.json({ nasabah: row });
+}
