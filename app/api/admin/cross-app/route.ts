@@ -19,7 +19,10 @@ function slugify(s: string): string {
 export async function GET(req: NextRequest) {
   if (!authed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const users = await dbAll(
-    `SELECT id, email, nama, role, tenant_id, is_active AS active, is_active FROM users ORDER BY created_at`
+    `SELECT id, email, nama,
+            CASE WHEN role = 'admin' THEN 'ADMIN' ELSE 'USER' END AS role,
+            tenant_id, is_active AS active, is_active
+       FROM users ORDER BY created_at`
   );
   const tenants = await dbAll(
     `SELECT id, nama_usaha AS name, nama_usaha, slug, owner_email, is_active AS active, is_active
