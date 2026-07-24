@@ -45,6 +45,7 @@ export async function GET() {
     return {
       id: g.id, no_sbg: g.no_sbg, status: g.status, usaha: g.nama_usaha,
       wa: g.settings?.no_wa || null,
+      promo_nama: g.promo_nama, promo_diskon: g.promo_diskon,
       tgl_gadai: g.tgl_gadai, tgl_jatuh_tempo: g.tgl_jatuh_tempo,
       bunga_persen: g.bunga_persen, periode_hari: g.periode_hari,
       taksiran: Number(g.taksiran), pokok: Number(g.pokok), pokok_sisa: Number(g.pokok_sisa),

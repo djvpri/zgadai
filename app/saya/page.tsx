@@ -82,6 +82,12 @@ function GadaiCard({ g, nama }: { g: any; nama: string }) {
       </div>
 
       <div className="p-5">
+        {g.promo_nama && (
+          <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-center px-3 py-2">
+            <div className="font-bold text-sm"><i className="bi bi-gift-fill me-1" />Promo {g.promo_nama}{g.promo_diskon ? ` — diskon bunga ${Number(g.promo_diskon)}%` : ""}</div>
+            <div className="text-[11px] text-emerald-600">Bunga spesial untuk pinjaman ini 🎉</div>
+          </div>
+        )}
         {aktif && g.tebus ? (
           <>
             <div className="text-center mb-4">
