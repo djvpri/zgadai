@@ -41,44 +41,39 @@ export async function POST(req: NextRequest) {
         const existing = await dbOne<any>(`SELECT id, tenant_id FROM users WHERE lower(email) = $1`, [email]);
         if (existing) return NextResponse.json({ ok: true, id: existing.id, note: "sudah ada" });
 
-        const role = data.role === "kasir" ? "kasir" : "admin";
+        // Z One mengirim "admin" / "user" → petugas = kasir, selain "admin".
+        const role = data.role === "admin" ? "admin" : "kasir";
         const pass = data.password ? hashPassword(String(data.password)) : null;
         const nama = String(data.nama || email);
 
-        // PETUGAS (kasir): gabungkan ke toko yang sudah ada (single-shop).
-        if (role === "kasir") {
-          let tenantId = data.tenant_id ? Number(data.tenant_id) : null;
-          if (!tenantId) {
-            const tenants = await dbAll<any>(`SELECT id FROM tenants ORDER BY created_at LIMIT 2`);
-            if (tenants.length === 0) return NextResponse.json({ error: "Belum ada toko. Buat admin dulu." }, { status: 400 });
-            if (tenants.length > 1) return NextResponse.json({ error: "Beberapa toko ada — sertakan tenant_id" }, { status: 400 });
-            tenantId = tenants[0].id;
-          }
-          const staff = await dbOne<any>(
-            `INSERT INTO users (tenant_id, email, password_hash, nama, role)
-             VALUES ($1,$2,$3,$4,'kasir') RETURNING id`,
-            [tenantId, email, pass, nama]
+        const tenants = await dbAll<any>(`SELECT id FROM tenants ORDER BY created_at LIMIT 2`);
+
+        // Belum ada toko → bootstrap: buat toko + user pertama sebagai admin/pemilik.
+        if (tenants.length === 0) {
+          const namaUsaha = String(data.nama_usaha || data.nama || email.split("@")[0]);
+          let slug = slugify(namaUsaha);
+          const clash = await dbOne(`SELECT 1 FROM tenants WHERE slug = $1`, [slug]);
+          if (clash) slug = `${slug}-${Math.floor(Math.random() * 900 + 100)}`;
+          const tenant = await dbOne<any>(
+            `INSERT INTO tenants (nama_usaha, slug, owner_name, owner_email) VALUES ($1,$2,$3,$4) RETURNING id`,
+            [namaUsaha, slug, nama, email]
           );
-          return NextResponse.json({ ok: true, id: staff!.id, tenant_id: tenantId, role: "kasir" });
+          const owner = await dbOne<any>(
+            `INSERT INTO users (tenant_id, email, password_hash, nama, role) VALUES ($1,$2,$3,$4,'admin') RETURNING id`,
+            [tenant!.id, email, pass, nama]
+          );
+          return NextResponse.json({ ok: true, id: owner!.id, tenant_id: tenant!.id, role: "admin" });
         }
 
-        // ADMIN/PEMILIK: buat toko baru + user admin (onboarding).
-        const namaUsaha = String(data.nama_usaha || data.nama || email.split("@")[0]);
-        let slug = slugify(namaUsaha);
-        const clash = await dbOne(`SELECT 1 FROM tenants WHERE slug = $1`, [slug]);
-        if (clash) slug = `${slug}-${Math.floor(Math.random() * 900 + 100)}`;
+        // Sudah ada toko → tambahkan user ke toko itu dengan peran yang dipilih.
+        const tenantId = data.tenant_id ? Number(data.tenant_id) : (tenants.length === 1 ? tenants[0].id : null);
+        if (!tenantId) return NextResponse.json({ error: "Beberapa toko ada — sertakan tenant_id" }, { status: 400 });
 
-        const tenant = await dbOne<any>(
-          `INSERT INTO tenants (nama_usaha, slug, owner_name, owner_email)
-           VALUES ($1,$2,$3,$4) RETURNING id`,
-          [namaUsaha, slug, nama, email]
+        const staff = await dbOne<any>(
+          `INSERT INTO users (tenant_id, email, password_hash, nama, role) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+          [tenantId, email, pass, nama, role]
         );
-        const user = await dbOne<any>(
-          `INSERT INTO users (tenant_id, email, password_hash, nama, role)
-           VALUES ($1,$2,$3,$4,'admin') RETURNING id`,
-          [tenant!.id, email, pass, nama]
-        );
-        return NextResponse.json({ ok: true, id: user!.id, tenant_id: tenant!.id, role: "admin" });
+        return NextResponse.json({ ok: true, id: staff!.id, tenant_id: tenantId, role });
       }
       case "updateRole": {
         const role = data.role === "admin" ? "admin" : "kasir";
