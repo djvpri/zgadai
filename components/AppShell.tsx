@@ -3,16 +3,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-const NAV = [
+const NAV: { href: string; label: string; short: string; icon: string; roles?: string[] }[] = [
   { href: "/dashboard", label: "Dashboard", short: "Home", icon: "bi-speedometer2" },
   { href: "/nasabah", label: "Nasabah", short: "Nasabah", icon: "bi-people" },
   { href: "/gadai/baru", label: "Gadai Baru", short: "Gadai", icon: "bi-plus-square" },
   { href: "/transaksi", label: "Transaksi", short: "Transaksi", icon: "bi-list-check" },
   { href: "/laporan", label: "Laporan", short: "Laporan", icon: "bi-bar-chart" },
-  { href: "/pengaturan", label: "Pengaturan", short: "Atur", icon: "bi-gear" },
+  { href: "/mitra", label: "Fee Mitra", short: "Fee", icon: "bi-percent", roles: ["admin", "mitra"] },
+  { href: "/staf", label: "Kelola Staf", short: "Staf", icon: "bi-person-badge", roles: ["admin"] },
+  { href: "/pengaturan", label: "Pengaturan", short: "Atur", icon: "bi-gear", roles: ["admin"] },
 ];
-// Bottom nav mobile: 5 utama (Pengaturan lewat gear di top bar)
-const BOTTOM = NAV.filter((n) => n.href !== "/pengaturan");
+// Bottom nav mobile: menu inti untuk semua peran (yang tanpa batasan role).
+const BOTTOM = NAV.filter((n) => !n.roles);
 
 interface Me {
   user: { nama: string; email: string; role: string };
@@ -42,10 +44,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const active = (href: string) =>
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 
-  const isAdmin = me?.user.role === "admin";
-  const roleLabel = me ? (isAdmin ? "Admin" : "Petugas") : "";
-  // Menu admin-only.
-  const nav = NAV.filter((n) => n.href !== "/pengaturan" || isAdmin);
+  const role = me?.user.role;
+  const roleLabel = me ? (role === "admin" ? "Admin" : role === "mitra" ? "Mitra" : "Petugas") : "";
+  const nav = NAV.filter((n) => !n.roles || (!!role && n.roles.includes(role)));
+  const topExtra = nav.filter((n) => n.roles); // menu khusus peran → ikon di top bar mobile
+  const navLabel = (n: { href: string; label: string }) =>
+    n.href === "/mitra" && role === "mitra" ? "Fee Saya" : n.label;
 
   return (
     <div className="min-h-dvh md:flex">
@@ -60,7 +64,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                 active(n.href) ? "bg-white/10 text-white" : "text-navy-200 hover:bg-white/5 hover:text-white"
               }`}>
-              <i className={`bi ${n.icon} text-lg`} /> {n.label}
+              <i className={`bi ${n.icon} text-lg`} /> {navLabel(n)}
             </Link>
           ))}
         </nav>
@@ -78,9 +82,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
         <span className="font-bold flex items-center gap-2"><i className="bi bi-safe2-fill text-gold-400" /> ZGadai</span>
         <div className="flex items-center gap-4">
-          {isAdmin && (
-            <Link href="/pengaturan" className={`text-lg ${active("/pengaturan") ? "text-gold-400" : "text-navy-200"}`}><i className="bi bi-gear" /></Link>
-          )}
+          {topExtra.map((n) => (
+            <Link key={n.href} href={n.href} title={navLabel(n)}
+              className={`text-lg ${active(n.href) ? "text-gold-400" : "text-navy-200"}`}><i className={`bi ${n.icon}`} /></Link>
+          ))}
           <button onClick={logout} className="text-navy-200 text-lg" aria-label="Keluar"><i className="bi bi-box-arrow-right" /></button>
         </div>
       </div>

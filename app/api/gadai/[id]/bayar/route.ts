@@ -76,6 +76,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [s.tenant_id, g.id, today, jenis, bunga, pokokDibayar, denda, total, jatuhTempoBaru, b.keterangan || null, s.user_id]
     );
+
+    // Fee mitra: kalau gadai ini dibuat oleh MITRA, catat fee dari bunga.
+    if (bunga > 0 && g.created_by) {
+      const m = await client.query(`SELECT role, fee_persen FROM users WHERE id = $1`, [g.created_by]);
+      const mr = m.rows[0];
+      if (mr && mr.role === "mitra" && Number(mr.fee_persen) > 0) {
+        const fee = Math.round((bunga * Number(mr.fee_persen)) / 100);
+        if (fee > 0) {
+          const nb = await client.query(`SELECT nama FROM nasabah WHERE id = $1`, [g.nasabah_id]);
+          await client.query(
+            `INSERT INTO mitra_fee (tenant_id, mitra_id, gadai_id, no_sbg, nasabah, bunga_dibayar, fee, tgl)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [s.tenant_id, g.created_by, g.id, g.no_sbg, nb.rows[0]?.nama || null, bunga, fee, today]
+          );
+        }
+      }
+    }
+
     await client.query("COMMIT");
     return NextResponse.json({ ok: true, jenis, bunga, denda, pokok_dibayar: pokokDibayar, total, jatuh_tempo_baru: jatuhTempoBaru });
   } catch (e: any) {
