@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { currentSession } from "@/lib/auth";
+import { currentSession, currentNasabah } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,8 +11,9 @@ const MODEL = "gemini-2.5-flash";
 // Identifikasi & taksiran AWAL dari foto barang jaminan (bersifat bantuan, WAJIB
 // diverifikasi petugas — emas tetap harus ditimbang & diuji kadar).
 export async function POST(req: NextRequest) {
-  const s = await currentSession();
-  if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Boleh staf ATAU nasabah (untuk simulasi di portal /saya).
+  const actor = (await currentSession()) || (await currentNasabah());
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const key = process.env.GEMINI_API_KEY;
   if (!key) return NextResponse.json({ error: "GEMINI_API_KEY belum diset" }, { status: 500 });

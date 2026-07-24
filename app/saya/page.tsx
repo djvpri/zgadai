@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { rupiah, tanggalID, selisihHari, statusJatuhTempo, STATUS_BADGE, waLink, plafon } from "@/lib/gadai";
+import { compressImage } from "@/lib/img";
 
 const ZONE = process.env.NEXT_PUBLIC_ZONE_URL || "https://zone.zomet.my.id";
 
@@ -72,7 +73,31 @@ export default function SayaPage() {
 
 function SimulasiCard({ sim }: { sim: any }) {
   const [taksiran, setTaksiran] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [aiNote, setAiNote] = useState("");
   const t = Number(taksiran || 0);
+
+  async function fotoTaksir(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true); setAiNote("");
+    try {
+      const dataUrl = await compressImage(file, 640, 0.8);
+      const r = await fetch("/api/jaminan/taksir", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: [dataUrl], mimeType: "image/jpeg" }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setAiNote(d.error || "Gagal menaksir"); return; }
+      if (d.taksiran) setTaksiran(String(d.taksiran));
+      setAiNote(`${d.nama || "Barang"}${d.catatan ? " — " + d.catatan : ""}`);
+    } catch {
+      setAiNote("Gagal memproses gambar");
+    } finally {
+      setBusy(false);
+    }
+  }
   const pinjaman = plafon(t, sim.plafon_persen);
   const admin = sim.biaya_admin + Math.round((pinjaman * sim.biaya_admin_persen) / 100);
   const diterima = Math.max(0, pinjaman - admin);
@@ -88,8 +113,18 @@ function SimulasiCard({ sim }: { sim: any }) {
       </div>
       <div className="p-5">
         <label className="text-xs font-semibold text-slate-500">Perkiraan nilai barang (taksiran)</label>
-        <input className="input tnum mt-1" inputMode="numeric" placeholder="mis. 2000000"
-          value={taksiran} onChange={(e) => setTaksiran(e.target.value.replace(/\D/g, ""))} />
+        <div className="flex gap-2 mt-1">
+          <input className="input tnum flex-1" inputMode="numeric" placeholder="mis. 2000000"
+            value={taksiran} onChange={(e) => setTaksiran(e.target.value.replace(/\D/g, ""))} />
+          <label className="btn-ghost cursor-pointer text-xs px-3 whitespace-nowrap">
+            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={fotoTaksir} disabled={busy} />
+            {busy
+              ? <span className="w-4 h-4 border-2 border-navy-300 border-t-navy-700 rounded-full animate-spin inline-block align-middle" />
+              : <><i className="bi bi-camera" /> Foto</>}
+          </label>
+        </div>
+        <p className="text-[11px] text-slate-400 mt-1"><i className="bi bi-stars text-gold-500 me-1" />Foto barang → AI perkirakan jenis & nilainya otomatis.</p>
+        {aiNote && <p className="text-[11px] text-emerald-600 mt-1"><i className="bi bi-robot me-1" />{aiNote}</p>}
 
         {t > 0 && (
           <>
