@@ -67,5 +67,15 @@ export async function GET() {
     biaya_admin_persen: Number(ss.biaya_admin_persen ?? 0),
   };
 
-  return NextResponse.json({ nasabah: { nama: nb.nama, email: nb.email }, gadai: result, sim });
+  // Promo bunga yang sedang berjalan (untuk simulasi — menarik nasabah).
+  const promo = await dbOne<any>(
+    `SELECT nama, diskon_bunga_persen, to_char(tgl_selesai,'YYYY-MM-DD') AS tgl_selesai
+       FROM promo
+      WHERE tenant_id = $1 AND aktif = true AND current_date BETWEEN tgl_mulai AND tgl_selesai
+      ORDER BY tgl_mulai DESC LIMIT 1`,
+    [nb.tenant_id]
+  );
+  const promoAktif = promo ? { nama: promo.nama, diskon: Number(promo.diskon_bunga_persen), sampai: promo.tgl_selesai } : null;
+
+  return NextResponse.json({ nasabah: { nama: nb.nama, email: nb.email }, gadai: result, sim, promoAktif });
 }

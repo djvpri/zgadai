@@ -71,7 +71,7 @@ export default function SayaPage() {
                 </div>
               )
             ) : (
-              data?.sim && <SimulasiCard sim={data.sim} />
+              data?.sim && <SimulasiCard sim={data.sim} promo={data.promoAktif} />
             )}
 
             <p className="text-center text-xs text-slate-400 mt-8">
@@ -84,11 +84,13 @@ export default function SayaPage() {
   );
 }
 
-function SimulasiCard({ sim }: { sim: any }) {
+function SimulasiCard({ sim, promo }: { sim: any; promo: any }) {
   const [taksiran, setTaksiran] = useState("");
   const [busy, setBusy] = useState(false);
   const [aiNote, setAiNote] = useState("");
   const t = Number(taksiran || 0);
+  // Bunga efektif: pakai diskon promo jika sedang berjalan.
+  const bungaEfektif = promo ? +(sim.bunga_persen * (1 - promo.diskon / 100)).toFixed(3) : sim.bunga_persen;
 
   async function fotoTaksir(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -115,7 +117,7 @@ function SimulasiCard({ sim }: { sim: any }) {
   const admin = sim.biaya_admin + Math.round((pinjaman * sim.biaya_admin_persen) / 100);
   const diterima = Math.max(0, pinjaman - admin);
   const rows = [1, 2, 3, 4].map((n) => {
-    const bunga = Math.round(pinjaman * (sim.bunga_persen / 100) * n);
+    const bunga = Math.round(pinjaman * (bungaEfektif / 100) * n);
     return { n, hari: n * sim.periode_hari, bunga, total: pinjaman + bunga };
   });
 
@@ -125,6 +127,14 @@ function SimulasiCard({ sim }: { sim: any }) {
         <i className="bi bi-calculator me-2 text-navy-500" />Simulasi Pinjaman
       </div>
       <div className="p-5">
+        {promo && (
+          <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-center px-3 py-2">
+            <div className="font-bold text-sm"><i className="bi bi-megaphone-fill me-1" />Sedang ada promo: {promo.nama}!</div>
+            <div className="text-[11px] text-emerald-600">
+              Bunga spesial {bungaEfektif}%/periode (normal {sim.bunga_persen}%){promo.sampai ? ` — s/d ${tanggalID(promo.sampai)}` : ""}. Gadai sekarang, lebih hemat! 🎉
+            </div>
+          </div>
+        )}
         <label className="text-xs font-semibold text-slate-500">Perkiraan nilai barang (taksiran)</label>
         <div className="flex gap-2 mt-1">
           <input className="input tnum flex-1" inputMode="numeric" placeholder="mis. 2000000"
@@ -160,7 +170,7 @@ function SimulasiCard({ sim }: { sim: any }) {
               </tbody>
             </table>
             <p className="text-[11px] text-slate-400 mt-2">
-              Estimasi: plafon {sim.plafon_persen}% taksiran, bunga {sim.bunga_persen}%/{sim.periode_hari} hari.
+              Estimasi: plafon {sim.plafon_persen}% taksiran, bunga {bungaEfektif}%/{sim.periode_hari} hari{promo ? " (promo)" : ""}.
               Nilai final ditentukan penaksir & dapat berbeda.
             </p>
           </>
