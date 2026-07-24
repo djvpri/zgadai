@@ -26,7 +26,7 @@ export async function GET() {
 
   const ids = gadai.map((g) => g.id);
   const barang = ids.length
-    ? await dbAll<any>(`SELECT gadai_id, nama, jenis, kadar, berat_gram, taksiran FROM barang WHERE gadai_id = ANY($1::bigint[]) ORDER BY id`, [ids])
+    ? await dbAll<any>(`SELECT gadai_id, nama, jenis, kadar, berat_gram, taksiran, foto_url, foto_urls FROM barang WHERE gadai_id = ANY($1::bigint[]) ORDER BY id`, [ids])
     : [];
   const pembayaran = ids.length
     ? await dbAll<any>(`SELECT gadai_id, tgl, jenis, total, bunga_dibayar, denda_dibayar, pokok_dibayar FROM pembayaran WHERE gadai_id = ANY($1::bigint[]) ORDER BY created_at DESC`, [ids])
@@ -44,6 +44,7 @@ export async function GET() {
       : null;
     return {
       id: g.id, no_sbg: g.no_sbg, status: g.status, usaha: g.nama_usaha,
+      wa: g.settings?.no_wa || null,
       tgl_gadai: g.tgl_gadai, tgl_jatuh_tempo: g.tgl_jatuh_tempo,
       bunga_persen: g.bunga_persen, periode_hari: g.periode_hari,
       taksiran: Number(g.taksiran), pokok: Number(g.pokok), pokok_sisa: Number(g.pokok_sisa),

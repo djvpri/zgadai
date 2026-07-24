@@ -28,7 +28,7 @@ export async function GET() {
     `SELECT COUNT(*)::int AS jumlah FROM nasabah WHERE tenant_id = $1`, [t]);
 
   const jatuhTempo = await dbAll(
-    `SELECT g.id, g.no_sbg, g.tgl_jatuh_tempo, g.pokok_sisa, n.nama AS nasabah_nama,
+    `SELECT g.id, g.no_sbg, g.tgl_jatuh_tempo, g.pokok_sisa, n.nama AS nasabah_nama, n.no_hp AS nasabah_hp,
             (g.tgl_jatuh_tempo - current_date) AS sisa_hari
        FROM gadai g JOIN nasabah n ON n.id = g.nasabah_id
       WHERE g.tenant_id = $1 AND g.status = 'aktif'
@@ -37,7 +37,11 @@ export async function GET() {
     [t]
   );
 
+  const setRow = await dbOne<any>(`SELECT settings FROM tenants WHERE id = $1`, [t]);
+
   return NextResponse.json({
+    usaha: s.nama_usaha,
+    no_wa: setRow?.settings?.no_wa || null,
     stat: {
       uang_beredar: Number(stat?.uang_beredar || 0),
       gadai_aktif: stat?.gadai_aktif || 0,

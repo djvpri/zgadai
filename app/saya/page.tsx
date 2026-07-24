@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { rupiah, tanggalID, selisihHari, statusJatuhTempo, STATUS_BADGE } from "@/lib/gadai";
+import { rupiah, tanggalID, selisihHari, statusJatuhTempo, STATUS_BADGE, waLink } from "@/lib/gadai";
 
 const ZONE = process.env.NEXT_PUBLIC_ZONE_URL || "https://zone.zomet.my.id";
 
@@ -50,7 +50,7 @@ export default function SayaPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {data.gadai.map((g: any) => <GadaiCard key={g.id} g={g} />)}
+                {data.gadai.map((g: any) => <GadaiCard key={g.id} g={g} nama={data?.nasabah?.nama || ""} />)}
               </div>
             )}
 
@@ -64,10 +64,12 @@ export default function SayaPage() {
   );
 }
 
-function GadaiCard({ g }: { g: any }) {
+function GadaiCard({ g, nama }: { g: any; nama: string }) {
   const aktif = g.status === "aktif";
   const badge = aktif ? (STATUS_BADGE[statusJatuhTempo(g.tgl_jatuh_tempo)] || STATUS_BADGE.aktif) : STATUS_BADGE[g.status];
   const sisa = selisihHari(new Date(), g.tgl_jatuh_tempo);
+  const pesanWa = `Halo ${g.usaha}, saya ${nama}. Ingin bertanya tentang gadai SBG ${g.no_sbg}` +
+    (aktif && g.tebus ? ` (jatuh tempo ${tanggalID(g.tgl_jatuh_tempo)}, total tebus ${rupiah(g.tebus.total)}).` : ".");
 
   return (
     <div className="card overflow-hidden">
@@ -103,13 +105,23 @@ function GadaiCard({ g }: { g: any }) {
 
         {/* Barang */}
         <div className="text-xs font-semibold text-slate-500 mb-1">Barang jaminan</div>
-        <ul className="text-sm mb-3">
-          {g.barang.map((b: any, i: number) => (
-            <li key={i} className="flex justify-between py-1 border-b border-slate-50">
-              <span className="text-navy-800 capitalize">{b.nama} <span className="text-slate-400">· {b.jenis}{b.kadar ? ` ${b.kadar}` : ""}</span></span>
-              <span className="text-slate-500 tnum">{rupiah(b.taksiran)}</span>
-            </li>
-          ))}
+        <ul className="text-sm mb-3 space-y-2">
+          {g.barang.map((b: any, i: number) => {
+            const fotos: string[] = Array.isArray(b.foto_urls) && b.foto_urls.length ? b.foto_urls : (b.foto_url ? [b.foto_url] : []);
+            return (
+              <li key={i} className="border-b border-slate-50 pb-2">
+                <div className="flex justify-between">
+                  <span className="text-navy-800 capitalize">{b.nama} <span className="text-slate-400">· {b.jenis}{b.kadar ? ` ${b.kadar}` : ""}</span></span>
+                  <span className="text-slate-500 tnum">{rupiah(b.taksiran)}</span>
+                </div>
+                {fotos.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {fotos.map((f, fi) => <img key={fi} src={f} alt="" className="w-14 h-14 rounded-lg object-cover border border-slate-200" />)}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
 
         {/* Riwayat */}
@@ -125,6 +137,13 @@ function GadaiCard({ g }: { g: any }) {
               ))}
             </ul>
           </details>
+        )}
+
+        {g.wa && (
+          <a href={waLink(g.wa, pesanWa)} target="_blank" rel="noopener noreferrer"
+            className="mt-4 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold">
+            <i className="bi bi-whatsapp" /> Hubungi Toko
+          </a>
         )}
       </div>
     </div>

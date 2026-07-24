@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
   if (b.biaya_admin !== undefined) patch.biaya_admin = numMin(b.biaya_admin);
   if (b.biaya_admin_persen !== undefined) patch.biaya_admin_persen = Math.max(0, Number(b.biaya_admin_persen) || 0);
   if (b.denda_persen_per_hari !== undefined) patch.denda_persen_per_hari = Math.max(0, Number(b.denda_persen_per_hari) || 0);
+  if (b.no_wa !== undefined) patch.no_wa = String(b.no_wa || "").replace(/[^\d+]/g, "").slice(0, 20);
+  if (b.alamat_toko !== undefined) patch.alamat_toko = String(b.alamat_toko || "").slice(0, 200);
   if (Array.isArray(b.jenis_barang)) {
     const arr = Array.from(new Set(
       b.jenis_barang.map((x: any) => String(x || "").trim().toLowerCase()).filter(Boolean)

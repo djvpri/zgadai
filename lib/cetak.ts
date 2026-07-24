@@ -12,7 +12,11 @@ interface SBGGadai {
   nasabah_nama: string; nasabah_hp?: string | null; nasabah_ktp?: string | null; nasabah_alamat?: string | null;
 }
 
-export function cetakSBG(g: SBGGadai, barang: SBGBarang[], usaha: string) {
+export function cetakSBG(
+  g: SBGGadai,
+  barang: SBGBarang[],
+  shop: { nama: string; alamat?: string | null; wa?: string | null },
+) {
   const rows = barang.map((b) => {
     const fotos = Array.isArray(b.foto_urls) && b.foto_urls.length ? b.foto_urls : (b.foto_url ? [b.foto_url] : []);
     const thumbs = fotos.slice(0, 4).map((f) => `<img src="${esc(f)}" class="thumb">`).join("");
@@ -57,7 +61,10 @@ export function cetakSBG(g: SBGGadai, barang: SBGBarang[], usaha: string) {
   .note { font-size:9px; color:#64748b; margin-top:16px; text-align:center; }
 </style></head><body>
   <div class="head">
-    <div><div class="brand">${esc(usaha)}</div><div class="muted">Layanan Gadai</div></div>
+    <div>
+      <div class="brand">${esc(shop.nama)}</div>
+      <div class="muted">Layanan Gadai${shop.alamat ? " &middot; " + esc(shop.alamat) : ""}${shop.wa ? " &middot; WA " + esc(shop.wa) : ""}</div>
+    </div>
     <div class="doc"><div class="t">SURAT BUKTI GADAI</div><div class="tnum">${esc(g.no_sbg)}</div></div>
   </div>
 
@@ -83,7 +90,7 @@ export function cetakSBG(g: SBGGadai, barang: SBGBarang[], usaha: string) {
 
   <div class="ttd">
     <div class="col"><div class="role">Nasabah,</div><div class="sign">${esc(g.nasabah_nama)}</div></div>
-    <div class="col"><div class="role">Petugas,</div><div class="sign">${esc(usaha)}</div></div>
+    <div class="col"><div class="role">Petugas,</div><div class="sign">${esc(shop.nama)}</div></div>
   </div>
   <div class="note">Barang dapat ditebus/diperpanjang sebelum jatuh tempo. Lewat tempo dapat dilelang sesuai ketentuan.</div>
 </body></html>`;

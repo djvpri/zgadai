@@ -111,6 +111,19 @@ export function taksiranEmas(berat: number, kadar: string, hargaPerGram: number)
   return Math.round(berat * frac * hargaPerGram);
 }
 
+/** Normalisasi nomor HP Indonesia ke format wa.me (62...). */
+export function normalizeWa(no: string | null | undefined): string {
+  let d = String(no || "").replace(/\D/g, "");
+  if (d.startsWith("0")) d = "62" + d.slice(1);
+  else if (d.startsWith("8")) d = "62" + d;
+  return d;
+}
+
+/** Bangun tautan WhatsApp dengan pesan otomatis. */
+export function waLink(no: string | null | undefined, text: string): string {
+  return `https://wa.me/${normalizeWa(no)}?text=${encodeURIComponent(text)}`;
+}
+
 export function tanggalID(tgl: string | Date | null | undefined): string {
   if (!tgl) return "-";
   return new Date(tgl).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });

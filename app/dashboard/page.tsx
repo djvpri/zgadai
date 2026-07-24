@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
-import { rupiah, tanggalID } from "@/lib/gadai";
+import { rupiah, tanggalID, waLink } from "@/lib/gadai";
 
 interface Stat {
   uang_beredar: number; gadai_aktif: number; jt_dekat: number;
@@ -10,18 +10,25 @@ interface Stat {
 }
 interface JT {
   id: number; no_sbg: string; tgl_jatuh_tempo: string; pokok_sisa: number;
-  nasabah_nama: string; sisa_hari: number;
+  nasabah_nama: string; nasabah_hp: string | null; sisa_hari: number;
 }
 
 export default function DashboardPage() {
   const [stat, setStat] = useState<Stat | null>(null);
   const [jt, setJt] = useState<JT[]>([]);
+  const [usaha, setUsaha] = useState("");
 
   useEffect(() => {
     fetch("/api/dashboard").then((r) => r.json()).then((d) => {
-      if (d.stat) { setStat(d.stat); setJt(d.jatuhTempo || []); }
+      if (d.stat) { setStat(d.stat); setJt(d.jatuhTempo || []); setUsaha(d.usaha || ""); }
     });
   }, []);
+
+  function pesanIngatkan(g: JT) {
+    return `Halo ${g.nasabah_nama}, pengingat gadai SBG ${g.no_sbg} jatuh tempo ${tanggalID(g.tgl_jatuh_tempo)}. ` +
+      `Sisa pokok ${rupiah(g.pokok_sisa)}. Mohon segera ditebus atau diperpanjang. Terima kasih.` +
+      (usaha ? ` — ${usaha}` : "");
+  }
 
   const cards = [
     { label: "Uang Beredar", value: rupiah(stat?.uang_beredar ?? 0), icon: "bi-cash-stack", tone: "text-navy-800", sub: "Total pokok pinjaman aktif" },
@@ -68,8 +75,8 @@ export default function DashboardPage() {
               const late = g.sisa_hari < 0;
               const soon = g.sisa_hari >= 0 && g.sisa_hari <= 7;
               return (
-                <li key={g.id}>
-                  <Link href={`/transaksi/${g.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                <li key={g.id} className="flex items-center">
+                  <Link href={`/transaksi/${g.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 flex-1 min-w-0">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-navy-900 truncate">{g.nasabah_nama}</div>
                       <div className="text-xs text-slate-500 tnum">{g.no_sbg} · {rupiah(g.pokok_sisa)}</div>
@@ -81,6 +88,13 @@ export default function DashboardPage() {
                       </span>
                     </div>
                   </Link>
+                  {g.nasabah_hp && (
+                    <a href={waLink(g.nasabah_hp, pesanIngatkan(g))} target="_blank" rel="noopener noreferrer"
+                      title="Ingatkan via WhatsApp"
+                      className="shrink-0 mr-3 w-9 h-9 grid place-items-center rounded-xl text-emerald-600 hover:bg-emerald-50">
+                      <i className="bi bi-whatsapp text-lg" />
+                    </a>
+                  )}
                 </li>
               );
             })}

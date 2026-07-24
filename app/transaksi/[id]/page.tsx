@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
-import { rupiah, tanggalID, statusJatuhTempo, STATUS_BADGE } from "@/lib/gadai";
+import { rupiah, tanggalID, statusJatuhTempo, STATUS_BADGE, waLink } from "@/lib/gadai";
 import { cetakSBG } from "@/lib/cetak";
 
 type Aksi = "tebus" | "perpanjang" | "cicil" | "lelang" | null;
@@ -64,7 +64,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   }
 
   function doCetak() {
-    cetakSBG(g, data.barang || [], data.usaha || g.nasabah_nama);
+    cetakSBG(g, data.barang || [], { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa });
   }
 
   return (
@@ -175,6 +175,13 @@ export default function DetailPage({ params }: { params: { id: string } }) {
                   <button className="btn-ghost text-xs px-2" onClick={() => setAksi("perpanjang")}><i className="bi bi-arrow-repeat" />Perpanjang</button>
                   <button className="btn-ghost text-xs px-2" onClick={() => setAksi("cicil")}><i className="bi bi-coin" />Cicil</button>
                 </div>
+                {g.nasabah_hp && (
+                  <a href={waLink(g.nasabah_hp, `Halo ${g.nasabah_nama}, pengingat gadai SBG ${g.no_sbg} jatuh tempo ${tanggalID(g.tgl_jatuh_tempo)}.${tebus ? ` Total tebus saat ini ${rupiah(tebus.total)}.` : ""} Mohon segera ditebus atau diperpanjang. Terima kasih.${data.usaha ? " — " + data.usaha : ""}`)}
+                    target="_blank" rel="noopener noreferrer"
+                    className="w-full mt-2 flex items-center justify-center gap-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 border border-emerald-200 rounded-xl py-2">
+                    <i className="bi bi-whatsapp" /> Ingatkan via WhatsApp
+                  </a>
+                )}
                 <button className="w-full mt-2 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 rounded-xl py-2 transition-colors"
                   onClick={() => setAksi("lelang")}>
                   <i className="bi bi-hammer me-1" />Lelang Barang

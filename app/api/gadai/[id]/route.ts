@@ -32,5 +32,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       }, dendaPersen)
     : null;
 
-  return NextResponse.json({ gadai, barang, pembayaran, tebus, usaha: s.nama_usaha });
+  return NextResponse.json({
+    gadai, barang, pembayaran, tebus,
+    usaha: s.nama_usaha,
+    alamat_toko: setRow?.settings?.alamat_toko || "",
+    no_wa: setRow?.settings?.no_wa || "",
+  });
 }

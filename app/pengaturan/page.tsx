@@ -14,6 +14,8 @@ export default function PengaturanPage() {
   const [admin, setAdmin] = useState("0");
   const [adminPersen, setAdminPersen] = useState("0");
   const [denda, setDenda] = useState("0");
+  const [wa, setWa] = useState("");
+  const [alamatToko, setAlamatToko] = useState("");
   const [jenis, setJenis] = useState<string[]>(DEFAULT_JENIS);
   const [newJenis, setNewJenis] = useState("");
 
@@ -33,6 +35,8 @@ export default function PengaturanPage() {
       if (s.biaya_admin !== undefined) setAdmin(String(s.biaya_admin));
       if (s.biaya_admin_persen !== undefined) setAdminPersen(String(s.biaya_admin_persen));
       if (s.denda_persen_per_hari !== undefined) setDenda(String(s.denda_persen_per_hari));
+      if (s.no_wa) setWa(s.no_wa);
+      if (s.alamat_toko) setAlamatToko(s.alamat_toko);
       if (Array.isArray(s.jenis_barang) && s.jenis_barang.length) setJenis(s.jenis_barang);
     }).finally(() => setLoading(false));
   }, []);
@@ -57,6 +61,8 @@ export default function PengaturanPage() {
         biaya_admin: Number(admin || 0),
         biaya_admin_persen: Number(adminPersen || 0),
         denda_persen_per_hari: Number(denda || 0),
+        no_wa: wa,
+        alamat_toko: alamatToko,
         jenis_barang: jenis,
       }),
     });
@@ -121,6 +127,24 @@ export default function PengaturanPage() {
             <p className="text-[11px] text-slate-400 mt-1">Denda = sisa pokok × %/hari × hari telat, ditagih saat tebus/perpanjang/cicil.</p>
           </div>
           <p className="text-[11px] text-slate-400">Biaya admin = nominal + %×pinjaman, otomatis terisi di Gadai Baru (bisa diubah per transaksi).</p>
+        </section>
+
+        {/* Kontak toko */}
+        <section className="card p-5 space-y-3 lg:col-span-2">
+          <h2 className="font-bold text-navy-900"><i className="bi bi-shop me-2 text-navy-500" />Kontak Toko</h2>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <label className="label">No. WhatsApp toko</label>
+              <input className="input tnum" inputMode="tel" placeholder="08xxxxxxxxxx" disabled={loading}
+                value={wa} onChange={(e) => setWa(e.target.value)} />
+              <p className="text-[11px] text-slate-400 mt-1">Dipakai di kop SBG & pengingat WhatsApp ke nasabah.</p>
+            </div>
+            <div>
+              <label className="label">Alamat toko</label>
+              <input className="input" placeholder="Alamat lengkap toko" disabled={loading}
+                value={alamatToko} onChange={(e) => setAlamatToko(e.target.value)} />
+            </div>
+          </div>
         </section>
 
         {/* Jenis barang */}
