@@ -79,7 +79,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   }
 
   function doCetak() {
-    cetakSBG(g, data.barang || [], { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa });
+    cetakSBG(g, data.barang || [], { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa, petugas: g.petugas });
   }
 
   return (

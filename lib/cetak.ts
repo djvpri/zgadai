@@ -16,7 +16,7 @@ interface SBGGadai {
 export function cetakSBG(
   g: SBGGadai,
   barang: SBGBarang[],
-  shop: { nama: string; alamat?: string | null; wa?: string | null },
+  shop: { nama: string; alamat?: string | null; wa?: string | null; petugas?: string | null },
 ) {
   const rows = barang.map((b) => {
     const fotos = Array.isArray(b.foto_urls) && b.foto_urls.length ? b.foto_urls : (b.foto_url ? [b.foto_url] : []);
@@ -95,7 +95,7 @@ export function cetakSBG(
 
   <div class="ttd">
     <div class="col"><div class="role">Nasabah,</div><div class="sign">${esc(g.nasabah_nama)}</div></div>
-    <div class="col"><div class="role">Petugas,</div><div class="sign">${esc(shop.nama)}</div></div>
+    <div class="col"><div class="role">Petugas,</div><div class="sign">${esc(shop.petugas || shop.nama)}</div></div>
   </div>
   <div class="note">Barang dapat ditebus/diperpanjang sebelum jatuh tempo. Lewat tempo dapat dilelang sesuai ketentuan.</div>
 </body></html>`;

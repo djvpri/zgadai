@@ -8,8 +8,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const gadai = await dbOne<any>(
-    `SELECT g.*, n.nama AS nasabah_nama, n.no_hp AS nasabah_hp, n.no_ktp AS nasabah_ktp, n.alamat AS nasabah_alamat
-       FROM gadai g JOIN nasabah n ON n.id = g.nasabah_id
+    `SELECT g.*, n.nama AS nasabah_nama, n.no_hp AS nasabah_hp, n.no_ktp AS nasabah_ktp, n.alamat AS nasabah_alamat,
+            u.nama AS petugas
+       FROM gadai g
+       JOIN nasabah n ON n.id = g.nasabah_id
+       LEFT JOIN users u ON u.id = g.created_by
       WHERE g.id = $1 AND g.tenant_id = $2`,
     [params.id, s.tenant_id]
   );
