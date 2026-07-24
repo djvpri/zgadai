@@ -9,6 +9,7 @@ import { hitungTebus } from "@/lib/gadai";
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (s.role !== "admin") return NextResponse.json({ error: "Hanya admin/pemilik yang boleh melelang" }, { status: 403 });
   const b = await req.json().catch(() => ({}));
   const harga = Math.max(0, Math.round(Number(b.harga_lelang || 0)));
 

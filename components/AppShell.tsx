@@ -42,6 +42,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const active = (href: string) =>
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 
+  const isAdmin = me?.user.role === "admin";
+  const roleLabel = me ? (isAdmin ? "Admin" : "Petugas") : "";
+  // Menu admin-only.
+  const nav = NAV.filter((n) => n.href !== "/pengaturan" || isAdmin);
+
   return (
     <div className="min-h-dvh md:flex">
       {/* Sidebar desktop */}
@@ -50,7 +55,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <i className="bi bi-safe2-fill text-gold-400" /> ZGadai
         </div>
         <nav className="flex-1 p-3 space-y-1">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <Link key={n.href} href={n.href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                 active(n.href) ? "bg-white/10 text-white" : "text-navy-200 hover:bg-white/5 hover:text-white"
@@ -61,7 +66,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="p-3 border-t border-white/10">
           <div className="px-2 py-1 text-xs text-navy-300 truncate">{me?.tenant.nama_usaha}</div>
-          <div className="px-2 pb-2 text-sm text-white truncate">{me?.user.nama} · <span className="text-navy-300 capitalize">{me?.user.role}</span></div>
+          <div className="px-2 pb-2 text-sm text-white truncate">{me?.user.nama} · <span className="text-navy-300">{roleLabel}</span></div>
           <button onClick={logout} className="w-full text-left px-3 py-2 rounded-lg text-sm text-navy-200 hover:bg-white/5 hover:text-white">
             <i className="bi bi-box-arrow-right me-2" /> Keluar
           </button>
@@ -73,7 +78,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
         <span className="font-bold flex items-center gap-2"><i className="bi bi-safe2-fill text-gold-400" /> ZGadai</span>
         <div className="flex items-center gap-4">
-          <Link href="/pengaturan" className={`text-lg ${active("/pengaturan") ? "text-gold-400" : "text-navy-200"}`}><i className="bi bi-gear" /></Link>
+          {isAdmin && (
+            <Link href="/pengaturan" className={`text-lg ${active("/pengaturan") ? "text-gold-400" : "text-navy-200"}`}><i className="bi bi-gear" /></Link>
+          )}
           <button onClick={logout} className="text-navy-200 text-lg" aria-label="Keluar"><i className="bi bi-box-arrow-right" /></button>
         </div>
       </div>

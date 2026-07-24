@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import { rupiah, tanggalID } from "@/lib/gadai";
 
@@ -44,6 +45,14 @@ export default function PengaturanPage() {
       if (Array.isArray(s.jenis_barang) && s.jenis_barang.length) setJenis(s.jenis_barang);
     }).finally(() => setLoading(false));
   }, []);
+
+  const router = useRouter();
+  // Guard: hanya admin yang boleh buka Pengaturan.
+  useEffect(() => {
+    fetch("/api/auth/me").then((r) => r.json()).then((d) => {
+      if (d.kind !== "staff" || d.user?.role !== "admin") router.replace("/dashboard");
+    }).catch(() => {});
+  }, [router]);
 
   function loadPromos() {
     fetch("/api/promo").then((r) => r.json()).then((d) => setPromos(d.promo || [])).catch(() => {});

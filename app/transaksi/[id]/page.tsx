@@ -33,6 +33,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   const g = data.gadai;
   const tebus = data.tebus;
   const aktif = g.status === "aktif";
+  const isAdmin = data.role === "admin";
   const badge = aktif ? (STATUS_BADGE[statusJatuhTempo(g.tgl_jatuh_tempo)] || STATUS_BADGE.aktif) : STATUS_BADGE[g.status];
   const selisihLelang = Number(g.harga_lelang || 0) - Number(g.nilai_kewajiban_lelang || 0);
   const previewSelisih = Number(hargaLelang || 0) - (tebus ? tebus.total : 0);
@@ -203,10 +204,12 @@ export default function DetailPage({ params }: { params: { id: string } }) {
                     <i className="bi bi-whatsapp" /> Ingatkan via WhatsApp
                   </a>
                 )}
-                <button className="w-full mt-2 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 rounded-xl py-2 transition-colors"
-                  onClick={() => setAksi("lelang")}>
-                  <i className="bi bi-hammer me-1" />Lelang Barang
-                </button>
+                {isAdmin && (
+                  <button className="w-full mt-2 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 rounded-xl py-2 transition-colors"
+                    onClick={() => setAksi("lelang")}>
+                    <i className="bi bi-hammer me-1" />Lelang Barang
+                  </button>
+                )}
               </>
             ) : g.status === "lunas" ? (
               <div className="text-center text-sm text-slate-500 pt-2">Ditebus {tanggalID(g.tgl_lunas)}</div>

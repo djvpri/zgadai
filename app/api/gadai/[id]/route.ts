@@ -34,6 +34,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   return NextResponse.json({
     gadai, barang, pembayaran, tebus,
+    role: s.role,
     usaha: s.nama_usaha,
     alamat_toko: setRow?.settings?.alamat_toko || "",
     no_wa: setRow?.settings?.no_wa || "",
