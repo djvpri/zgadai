@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { rupiah, tanggalID, selisihHari, statusJatuhTempo, STATUS_BADGE, waLink } from "@/lib/gadai";
+import { rupiah, tanggalID, selisihHari, statusJatuhTempo, STATUS_BADGE, waLink, plafon } from "@/lib/gadai";
 
 const ZONE = process.env.NEXT_PUBLIC_ZONE_URL || "https://zone.zomet.my.id";
 
@@ -54,12 +54,70 @@ export default function SayaPage() {
               </div>
             )}
 
+            {data?.sim && (
+              <div className="mt-4">
+                <SimulasiCard sim={data.sim} />
+              </div>
+            )}
+
             <p className="text-center text-xs text-slate-400 mt-8">
               Layanan ekosistem <a href={ZONE} className="text-navy-600 font-semibold">Zomet</a>
             </p>
           </>
         )}
       </main>
+    </div>
+  );
+}
+
+function SimulasiCard({ sim }: { sim: any }) {
+  const [taksiran, setTaksiran] = useState("");
+  const t = Number(taksiran || 0);
+  const pinjaman = plafon(t, sim.plafon_persen);
+  const admin = sim.biaya_admin + Math.round((pinjaman * sim.biaya_admin_persen) / 100);
+  const diterima = Math.max(0, pinjaman - admin);
+  const rows = [1, 2, 3, 4].map((n) => {
+    const bunga = Math.round(pinjaman * (sim.bunga_persen / 100) * n);
+    return { n, hari: n * sim.periode_hari, bunga, total: pinjaman + bunga };
+  });
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-slate-100 font-bold text-navy-900">
+        <i className="bi bi-calculator me-2 text-navy-500" />Simulasi Pinjaman
+      </div>
+      <div className="p-5">
+        <label className="text-xs font-semibold text-slate-500">Perkiraan nilai barang (taksiran)</label>
+        <input className="input tnum mt-1" inputMode="numeric" placeholder="mis. 2000000"
+          value={taksiran} onChange={(e) => setTaksiran(e.target.value.replace(/\D/g, ""))} />
+
+        {t > 0 && (
+          <>
+            <div className="bg-navy-50 rounded-xl p-3 mt-4 space-y-1 text-sm">
+              <div className="flex justify-between"><span className="text-slate-500">Uang pinjaman ({sim.plafon_persen}%)</span><span className="font-medium tnum">{rupiah(pinjaman)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Biaya admin</span><span className="font-medium tnum">{rupiah(admin)}</span></div>
+              <div className="flex justify-between border-t border-navy-200 pt-1.5 mt-1"><span className="font-semibold text-navy-900">Diterima</span><span className="font-bold text-emerald-700 tnum">{rupiah(diterima)}</span></div>
+            </div>
+
+            <div className="text-xs font-semibold text-slate-500 mt-4 mb-1">Perkiraan tebus (pinjaman + bunga)</div>
+            <table className="w-full text-sm">
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.n} className="border-b border-slate-50">
+                    <td className="py-1.5 text-slate-600">{r.hari} hari</td>
+                    <td className="py-1.5 text-right text-slate-400 tnum">+{rupiah(r.bunga)}</td>
+                    <td className="py-1.5 text-right font-semibold text-navy-900 tnum">{rupiah(r.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-[11px] text-slate-400 mt-2">
+              Estimasi: plafon {sim.plafon_persen}% taksiran, bunga {sim.bunga_persen}%/{sim.periode_hari} hari.
+              Nilai final ditentukan penaksir & dapat berbeda.
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }

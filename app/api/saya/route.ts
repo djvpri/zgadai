@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { dbAll } from "@/lib/db";
+import { dbAll, dbOne } from "@/lib/db";
 import { currentNasabah } from "@/lib/auth";
 import { hitungTebus } from "@/lib/gadai";
 
@@ -56,5 +56,16 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ nasabah: { nama: nb.nama, email: nb.email }, gadai: result });
+  // Tarif toko nasabah (untuk simulasi pinjaman).
+  const setRow = await dbOne<any>(`SELECT settings FROM tenants WHERE id = $1`, [nb.tenant_id]);
+  const ss = setRow?.settings || {};
+  const sim = {
+    plafon_persen: Number(ss.plafon_persen ?? 90),
+    bunga_persen: Number(ss.bunga_persen ?? 2),
+    periode_hari: Number(ss.periode_hari ?? 15),
+    biaya_admin: Number(ss.biaya_admin ?? 0),
+    biaya_admin_persen: Number(ss.biaya_admin_persen ?? 0),
+  };
+
+  return NextResponse.json({ nasabah: { nama: nb.nama, email: nb.email }, gadai: result, sim });
 }
