@@ -7,7 +7,7 @@ export async function GET() {
   const s = await currentSession();
   if (!s || s.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   const staf = await dbAll(
-    `SELECT id, email, nama, role, fee_persen, is_active
+    `SELECT id, email, nama, role, fee_persen, modal, bagi_hasil_persen, is_active
        FROM users WHERE tenant_id = $1 ORDER BY created_at`,
     [s.tenant_id]
   );
@@ -25,8 +25,13 @@ export async function PATCH(req: NextRequest) {
   const row = await dbOne<any>(`SELECT id FROM users WHERE id = $1 AND tenant_id = $2`, [id, s.tenant_id]);
   if (!row) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
 
-  const role = ["admin", "kasir", "mitra"].includes(b.role) ? b.role : "kasir";
+  const role = ["admin", "kasir", "mitra", "investor"].includes(b.role) ? b.role : "kasir";
   const fee = role === "mitra" ? Math.max(0, Math.min(100, Number(b.fee_persen) || 0)) : 0;
-  await dbRun(`UPDATE users SET role = $1, fee_persen = $2 WHERE id = $3`, [role, fee, id]);
+  const modal = role === "investor" ? Math.max(0, Math.round(Number(b.modal) || 0)) : 0;
+  const bagi = role === "investor" ? Math.max(0, Math.min(100, Number(b.bagi_hasil_persen) || 0)) : 0;
+  await dbRun(
+    `UPDATE users SET role = $1, fee_persen = $2, modal = $3, bagi_hasil_persen = $4 WHERE id = $5`,
+    [role, fee, modal, bagi, id]
+  );
   return NextResponse.json({ ok: true });
 }

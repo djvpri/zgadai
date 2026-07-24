@@ -6,6 +6,7 @@ import { hitungTebus } from "@/lib/gadai";
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (s.role === "investor") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
 
   const gadai = await dbOne<any>(
     `SELECT g.*, n.nama AS nasabah_nama, n.no_hp AS nasabah_hp, n.no_ktp AS nasabah_ktp, n.alamat AS nasabah_alamat,

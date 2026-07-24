@@ -7,6 +7,7 @@ import { hitungBunga, periodeBerjalan, selisihHari, tambahHari, hariTelat, hitun
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (s.role === "investor") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
   const b = await req.json().catch(() => ({}));
   const jenis = b.jenis as string;
   if (!["tebus", "perpanjang", "cicil"].includes(jenis))

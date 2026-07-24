@@ -8,7 +8,7 @@ export interface SessionUser {
   tenant_id: number;
   email: string;
   nama: string;
-  role: "admin" | "kasir" | "mitra";
+  role: "admin" | "kasir" | "mitra" | "investor";
   nama_usaha: string;
   slug: string;
 }

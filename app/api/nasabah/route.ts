@@ -5,6 +5,7 @@ import { currentSession } from "@/lib/auth";
 export async function GET(req: NextRequest) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (s.role === "investor") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
   const q = (req.nextUrl.searchParams.get("q") || "").trim().toLowerCase();
 
   const rows = await dbAll(
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (s.role === "investor") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
   const b = await req.json().catch(() => ({}));
   const nama = String(b.nama || "").trim();
   if (!nama) return NextResponse.json({ error: "Nama wajib diisi" }, { status: 400 });

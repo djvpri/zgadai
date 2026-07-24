@@ -6,6 +6,7 @@ import { currentSession } from "@/lib/auth";
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (s.role === "investor") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
 
   const nasabah = await dbOne<any>(
     `SELECT * FROM nasabah WHERE id = $1 AND tenant_id = $2`, [params.id, s.tenant_id]);
@@ -25,6 +26,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (s.role === "investor") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
   const row = await dbOne<any>(`SELECT id FROM nasabah WHERE id = $1 AND tenant_id = $2`, [params.id, s.tenant_id]);
   if (!row) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
 

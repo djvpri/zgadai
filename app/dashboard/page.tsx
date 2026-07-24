@@ -17,10 +17,12 @@ export default function DashboardPage() {
   const [stat, setStat] = useState<Stat | null>(null);
   const [jt, setJt] = useState<JT[]>([]);
   const [usaha, setUsaha] = useState("");
+  const [role, setRole] = useState("");
+  const isInvestor = role === "investor";
 
   useEffect(() => {
     fetch("/api/dashboard").then((r) => r.json()).then((d) => {
-      if (d.stat) { setStat(d.stat); setJt(d.jatuhTempo || []); setUsaha(d.usaha || ""); }
+      if (d.stat) { setStat(d.stat); setJt(d.jatuhTempo || []); setUsaha(d.usaha || ""); setRole(d.role || ""); }
     });
   }, []);
 
@@ -46,7 +48,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-navy-900">Dashboard</h1>
           <p className="text-slate-500 text-sm">Ringkasan usaha gadai kamu</p>
         </div>
-        <Link href="/gadai/baru" className="btn-gold"><i className="bi bi-plus-lg" /> Gadai Baru</Link>
+        {!isInvestor && <Link href="/gadai/baru" className="btn-gold"><i className="bi bi-plus-lg" /> Gadai Baru</Link>}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -65,7 +67,7 @@ export default function DashboardPage() {
       <div className="card">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <h2 className="font-bold text-navy-900"><i className="bi bi-clock-history text-amber-500 me-2" />Jatuh Tempo Terdekat</h2>
-          <Link href="/transaksi" className="text-sm text-navy-600 hover:underline">Semua transaksi</Link>
+          {!isInvestor && <Link href="/transaksi" className="text-sm text-navy-600 hover:underline">Semua transaksi</Link>}
         </div>
         {jt.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-sm">Belum ada gadai aktif.</div>
@@ -76,19 +78,26 @@ export default function DashboardPage() {
               const soon = g.sisa_hari >= 0 && g.sisa_hari <= 7;
               return (
                 <li key={g.id} className="flex items-center">
-                  <Link href={`/transaksi/${g.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 flex-1 min-w-0">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-navy-900 truncate">{g.nasabah_nama}</div>
-                      <div className="text-xs text-slate-500 tnum">{g.no_sbg} · {rupiah(g.pokok_sisa)}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs text-slate-500 tnum">{tanggalID(g.tgl_jatuh_tempo)}</div>
-                      <span className={`text-[11px] font-semibold ${late ? "text-red-600" : soon ? "text-amber-600" : "text-emerald-600"}`}>
-                        {late ? `Telat ${Math.abs(g.sisa_hari)} hr` : g.sisa_hari === 0 ? "Hari ini" : `${g.sisa_hari} hari lagi`}
-                      </span>
-                    </div>
-                  </Link>
-                  {g.nasabah_hp && (
+                  {(() => {
+                    const inner = (
+                      <>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-navy-900 truncate">{g.nasabah_nama}</div>
+                          <div className="text-xs text-slate-500 tnum">{g.no_sbg} · {rupiah(g.pokok_sisa)}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-slate-500 tnum">{tanggalID(g.tgl_jatuh_tempo)}</div>
+                          <span className={`text-[11px] font-semibold ${late ? "text-red-600" : soon ? "text-amber-600" : "text-emerald-600"}`}>
+                            {late ? `Telat ${Math.abs(g.sisa_hari)} hr` : g.sisa_hari === 0 ? "Hari ini" : `${g.sisa_hari} hari lagi`}
+                          </span>
+                        </div>
+                      </>
+                    );
+                    return isInvestor
+                      ? <div className="flex items-center gap-3 px-5 py-3 flex-1 min-w-0">{inner}</div>
+                      : <Link href={`/transaksi/${g.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 flex-1 min-w-0">{inner}</Link>;
+                  })()}
+                  {!isInvestor && g.nasabah_hp && (
                     <a href={waLink(g.nasabah_hp, pesanIngatkan(g))} target="_blank" rel="noopener noreferrer"
                       title="Ingatkan via WhatsApp"
                       className="shrink-0 mr-3 w-9 h-9 grid place-items-center rounded-xl text-emerald-600 hover:bg-emerald-50">

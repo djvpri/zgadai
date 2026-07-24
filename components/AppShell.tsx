@@ -3,18 +3,19 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-const NAV: { href: string; label: string; short: string; icon: string; roles?: string[] }[] = [
-  { href: "/dashboard", label: "Dashboard", short: "Home", icon: "bi-speedometer2" },
-  { href: "/nasabah", label: "Nasabah", short: "Nasabah", icon: "bi-people" },
-  { href: "/gadai/baru", label: "Gadai Baru", short: "Gadai", icon: "bi-plus-square" },
-  { href: "/transaksi", label: "Transaksi", short: "Transaksi", icon: "bi-list-check" },
-  { href: "/laporan", label: "Laporan", short: "Laporan", icon: "bi-bar-chart" },
+const OPS = ["admin", "kasir", "mitra"]; // peran operasional
+const NAV: { href: string; label: string; short: string; icon: string; roles: string[] }[] = [
+  { href: "/dashboard", label: "Dashboard", short: "Home", icon: "bi-speedometer2", roles: ["admin", "kasir", "mitra", "investor"] },
+  { href: "/nasabah", label: "Nasabah", short: "Nasabah", icon: "bi-people", roles: OPS },
+  { href: "/gadai/baru", label: "Gadai Baru", short: "Gadai", icon: "bi-plus-square", roles: OPS },
+  { href: "/transaksi", label: "Transaksi", short: "Transaksi", icon: "bi-list-check", roles: OPS },
+  { href: "/laporan", label: "Laporan", short: "Laporan", icon: "bi-bar-chart", roles: ["admin", "kasir", "mitra", "investor"] },
   { href: "/mitra", label: "Fee Mitra", short: "Fee", icon: "bi-percent", roles: ["admin", "mitra"] },
+  { href: "/investor", label: "Investor", short: "Return", icon: "bi-graph-up-arrow", roles: ["admin", "investor"] },
   { href: "/staf", label: "Kelola Staf", short: "Staf", icon: "bi-person-badge", roles: ["admin"] },
   { href: "/pengaturan", label: "Pengaturan", short: "Atur", icon: "bi-gear", roles: ["admin"] },
 ];
-// Bottom nav mobile: menu inti untuk semua peran (yang tanpa batasan role).
-const BOTTOM = NAV.filter((n) => !n.roles);
+const CORE = ["/dashboard", "/nasabah", "/gadai/baru", "/transaksi", "/laporan"];
 
 interface Me {
   user: { nama: string; email: string; role: string };
@@ -45,11 +46,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 
   const role = me?.user.role;
-  const roleLabel = me ? (role === "admin" ? "Admin" : role === "mitra" ? "Mitra" : "Petugas") : "";
-  const nav = NAV.filter((n) => !n.roles || (!!role && n.roles.includes(role)));
-  const topExtra = nav.filter((n) => n.roles); // menu khusus peran → ikon di top bar mobile
+  const roleLabel = me ? ({ admin: "Admin", mitra: "Mitra", investor: "Investor", kasir: "Marketing" } as any)[role || ""] || "Marketing" : "";
+  const nav = NAV.filter((n) => !!role && n.roles.includes(role));
+  const bottomNav = nav.filter((n) => CORE.includes(n.href));
+  const topExtra = nav.filter((n) => !CORE.includes(n.href)); // menu khusus → ikon top bar mobile
   const navLabel = (n: { href: string; label: string }) =>
-    n.href === "/mitra" && role === "mitra" ? "Fee Saya" : n.label;
+    n.href === "/mitra" && role === "mitra" ? "Fee Saya"
+    : n.href === "/investor" && role === "investor" ? "Return Saya"
+    : n.label;
 
   return (
     <div className="min-h-dvh md:flex">
@@ -95,15 +99,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 no-print"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="grid grid-cols-5">
-          {BOTTOM.map((n) => {
+        <div className="flex">
+          {bottomNav.map((n) => {
             const on = active(n.href);
             const center = n.href === "/gadai/baru";
             return (
               <Link key={n.href} href={n.href}
-                className={`flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${on ? "text-navy-800" : "text-slate-400"}`}>
+                className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${on ? "text-navy-800" : "text-slate-400"}`}>
                 <span className={center ? "w-9 h-9 -mt-3 rounded-full bg-navy-800 text-white grid place-items-center shadow-pop" : ""}>
-                  <i className={`bi ${n.icon} ${center ? "text-lg" : "text-lg"}`} />
+                  <i className={`bi ${n.icon} text-lg`} />
                 </span>
                 {n.short}
               </Link>

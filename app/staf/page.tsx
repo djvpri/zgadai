@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 
-const ROLE_LABEL: Record<string, string> = { kasir: "Petugas", mitra: "Mitra", admin: "Admin" };
-
 export default function StafPage() {
   const router = useRouter();
   const [staf, setStaf] = useState<any[]>([]);
@@ -17,7 +15,7 @@ export default function StafPage() {
     fetch("/api/staf").then(async (r) => {
       if (r.status === 403) { router.replace("/dashboard"); return; }
       const d = await r.json();
-      setStaf((d.staf || []).map((u: any) => ({ ...u, fee_persen: Number(u.fee_persen) })));
+      setStaf((d.staf || []).map((u: any) => ({ ...u, fee_persen: Number(u.fee_persen), modal: Number(u.modal || 0), bagi_hasil_persen: Number(u.bagi_hasil_persen || 0) })));
       setMeId(d.me ?? null);
     }).finally(() => setLoading(false));
   }
@@ -31,7 +29,7 @@ export default function StafPage() {
     setSavingId(u.id); setMsg("");
     const r = await fetch("/api/staf", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: u.id, role: u.role, fee_persen: u.fee_persen }),
+      body: JSON.stringify({ id: u.id, role: u.role, fee_persen: u.fee_persen, modal: u.modal, bagi_hasil_persen: u.bagi_hasil_persen }),
     });
     setSavingId(null);
     if (r.ok) setMsg(`Tersimpan: ${u.nama}`);
@@ -62,8 +60,9 @@ export default function StafPage() {
                 <div>
                   <label className="label">Peran</label>
                   <select className="input" value={u.role} onChange={(e) => setRow(u.id, { role: e.target.value })}>
-                    <option value="kasir">Petugas</option>
+                    <option value="kasir">Marketing</option>
                     <option value="mitra">Mitra</option>
+                    <option value="investor">Investor</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
@@ -74,12 +73,29 @@ export default function StafPage() {
                       onChange={(e) => setRow(u.id, { fee_persen: e.target.value.replace(/[^\d.]/g, "") })} />
                   </div>
                 )}
+                {u.role === "investor" && (
+                  <>
+                    <div>
+                      <label className="label">Modal (Rp)</label>
+                      <input className="input tnum max-w-[160px]" inputMode="numeric" value={u.modal}
+                        onChange={(e) => setRow(u.id, { modal: e.target.value.replace(/\D/g, "") })} />
+                    </div>
+                    <div>
+                      <label className="label">Bagi hasil % (dari laba)</label>
+                      <input className="input tnum max-w-[120px]" inputMode="decimal" value={u.bagi_hasil_persen}
+                        onChange={(e) => setRow(u.id, { bagi_hasil_persen: e.target.value.replace(/[^\d.]/g, "") })} />
+                    </div>
+                  </>
+                )}
                 <button className="btn-primary" onClick={() => simpan(u)} disabled={savingId === u.id}>
                   {savingId === u.id ? "Menyimpan…" : "Simpan"}
                 </button>
               </div>
               {u.role === "mitra" && (
                 <p className="text-[11px] text-slate-400 mt-2">Mitra dapat {Number(u.fee_persen) || 0}% dari bunga yang terkumpul dari gadai yang dia buat.</p>
+              )}
+              {u.role === "investor" && (
+                <p className="text-[11px] text-slate-400 mt-2">Investor pantau bisnis (read-only) & dapat {Number(u.bagi_hasil_persen) || 0}% bagi hasil dari laba.</p>
               )}
             </div>
           ))}

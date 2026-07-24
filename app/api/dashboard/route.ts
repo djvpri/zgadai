@@ -41,6 +41,7 @@ export async function GET() {
 
   return NextResponse.json({
     usaha: s.nama_usaha,
+    role: s.role,
     no_wa: setRow?.settings?.no_wa || null,
     stat: {
       uang_beredar: Number(stat?.uang_beredar || 0),

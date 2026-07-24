@@ -7,6 +7,7 @@ import { tambahHari } from "@/lib/gadai";
 export async function GET(req: NextRequest) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (s.role === "investor") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
   const sp = req.nextUrl.searchParams;
   const status = sp.get("status") || "";
   const q = (sp.get("q") || "").trim().toLowerCase();
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (s.role === "investor") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
   const b = await req.json().catch(() => ({}));
 
   const nasabahId = Number(b.nasabah_id);
