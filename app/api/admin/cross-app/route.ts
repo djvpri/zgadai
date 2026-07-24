@@ -19,10 +19,11 @@ function slugify(s: string): string {
 export async function GET(req: NextRequest) {
   if (!authed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const users = await dbAll(
-    `SELECT id, email, nama, role, tenant_id, is_active FROM users ORDER BY created_at`
+    `SELECT id, email, nama, role, tenant_id, is_active AS active, is_active FROM users ORDER BY created_at`
   );
   const tenants = await dbAll(
-    `SELECT id, nama_usaha, slug, owner_email, is_active FROM tenants ORDER BY created_at`
+    `SELECT id, nama_usaha AS name, nama_usaha, slug, owner_email, is_active AS active, is_active
+       FROM tenants ORDER BY created_at`
   );
   return NextResponse.json({ users, tenants });
 }
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
         if (existing) return NextResponse.json({ ok: true, id: existing.id, note: "sudah ada" });
 
         // Z One mengirim "admin" / "user" → petugas = kasir, selain "admin".
-        const role = data.role === "admin" ? "admin" : "kasir";
+        const role = String(data.role || "").toLowerCase() === "admin" ? "admin" : "kasir";
         const pass = data.password ? hashPassword(String(data.password)) : null;
         const nama = String(data.nama || email);
 
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, id: staff!.id, tenant_id: tenantId, role });
       }
       case "updateRole": {
-        const role = data.role === "admin" ? "admin" : "kasir";
+        const role = String(data.role || "").toLowerCase() === "admin" ? "admin" : "kasir";
         await dbRun(`UPDATE users SET role = $1 WHERE lower(email) = $2`, [role, email]);
         return NextResponse.json({ ok: true });
       }
@@ -89,6 +90,40 @@ export async function POST(req: NextRequest) {
       case "delete": {
         await dbRun(`UPDATE users SET is_active = false WHERE lower(email) = $1`, [email]);
         return NextResponse.json({ ok: true });
+      }
+      case "reactivate": {
+        await dbRun(`UPDATE users SET is_active = true WHERE lower(email) = $1`, [email]);
+        return NextResponse.json({ ok: true });
+      }
+      case "moveTenant": {
+        const tid = Number(data.tenantId ?? data.tenant_id);
+        if (!tid) return NextResponse.json({ error: "tenantId wajib" }, { status: 400 });
+        if (data.userId) await dbRun(`UPDATE users SET tenant_id = $1 WHERE id = $2`, [tid, Number(data.userId)]);
+        else if (email) await dbRun(`UPDATE users SET tenant_id = $1 WHERE lower(email) = $2`, [tid, email]);
+        return NextResponse.json({ ok: true });
+      }
+      case "deleteTenant": {
+        await dbRun(`UPDATE tenants SET is_active = false WHERE id = $1`, [Number(data.tenantId ?? data.tenant_id)]);
+        return NextResponse.json({ ok: true });
+      }
+      case "reactivateTenant": {
+        await dbRun(`UPDATE tenants SET is_active = true WHERE id = $1`, [Number(data.tenantId ?? data.tenant_id)]);
+        return NextResponse.json({ ok: true });
+      }
+      case "createTenant": {
+        const nm = String(data.name || "").trim() || "Toko";
+        let slug = slugify(nm);
+        const clash = await dbOne(`SELECT 1 FROM tenants WHERE slug = $1`, [slug]);
+        if (clash) slug = `${slug}-${Math.floor(Math.random() * 900 + 100)}`;
+        const t = await dbOne<any>(
+          `INSERT INTO tenants (nama_usaha, slug, owner_email) VALUES ($1,$2,$3) RETURNING id`,
+          [nm, slug, `noreply+${Date.now()}@zgadai.local`]
+        );
+        return NextResponse.json({ ok: true, id: t!.id });
+      }
+      case "updatePlan": {
+        // ZGadai tidak memakai paket berlangganan — abaikan (no-op).
+        return NextResponse.json({ ok: true, note: "tanpa sistem paket" });
       }
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
