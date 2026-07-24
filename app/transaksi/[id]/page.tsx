@@ -86,6 +86,12 @@ export default function DetailPage({ params }: { params: { id: string } }) {
             <div className="text-lg font-semibold text-navy-900">{g.nasabah_nama}</div>
             <div className="text-sm text-slate-500 tnum">{g.nasabah_hp || "—"}{g.nasabah_ktp ? ` · KTP ${g.nasabah_ktp}` : ""}</div>
             {g.nasabah_alamat && <div className="text-sm text-slate-500 mt-1">{g.nasabah_alamat}</div>}
+            {g.foto_nasabah && (
+              <div className="mt-3">
+                <img src={g.foto_nasabah} alt="Foto nasabah saat transaksi" className="w-24 h-24 rounded-lg object-cover border border-slate-200" />
+                <div className="text-[11px] text-slate-400 mt-1"><i className="bi bi-camera me-1" />Dokumentasi saat transaksi</div>
+              </div>
+            )}
           </section>
 
           {/* Barang */}

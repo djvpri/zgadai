@@ -49,12 +49,14 @@ export async function POST(req: NextRequest) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const fotoNasabah = typeof b.foto_nasabah === "string" && b.foto_nasabah.startsWith("data:image/") && b.foto_nasabah.length < 300_000
+      ? b.foto_nasabah : null;
     const ins = await client.query(
       `INSERT INTO gadai (tenant_id, no_sbg, nasabah_id, tgl_gadai, tgl_jatuh_tempo,
-                          periode_hari, bunga_persen, taksiran, pokok, pokok_sisa, biaya_admin, keterangan, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12) RETURNING id`,
+                          periode_hari, bunga_persen, taksiran, pokok, pokok_sisa, biaya_admin, keterangan, created_by, foto_nasabah)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12,$13) RETURNING id`,
       [s.tenant_id, "tmp-" + Date.now(), nasabahId, tglGadai, jatuhTempo,
-       periodeHari, bungaPersen, taksiran, pokok, biayaAdmin, b.keterangan || null, s.user_id]
+       periodeHari, bungaPersen, taksiran, pokok, biayaAdmin, b.keterangan || null, s.user_id, fotoNasabah]
     );
     const id = ins.rows[0].id as number;
     const noSbg = "SBG" + String(id).padStart(5, "0");

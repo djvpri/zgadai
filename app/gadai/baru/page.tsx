@@ -29,7 +29,8 @@ export default function GadaiBaruPage() {
   const [pokok, setPokok] = useState("");
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
-  const [camIdx, setCamIdx] = useState<number | null>(null);
+  const [cam, setCam] = useState<{ kind: "barang"; idx: number } | { kind: "nasabah" } | null>(null);
+  const [fotoNasabah, setFotoNasabah] = useState("");
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [hargaEmas, setHargaEmas] = useState(0);
@@ -56,19 +57,20 @@ export default function GadaiBaruPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Webcam untuk foto barang jaminan (kamera belakang).
+  // Webcam: barang (kamera belakang) / nasabah (kamera depan).
   useEffect(() => {
-    if (camIdx === null) return;
+    if (!cam) return;
     let active = true;
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
+    const facingMode = cam.kind === "nasabah" ? "user" : "environment";
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facingMode } }, audio: false })
       .then((stream) => {
         if (!active) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
         if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(() => {}); }
       })
-      .catch(() => { setErr("Tidak bisa mengakses kamera. Izinkan akses atau pakai Upload."); setCamIdx(null); });
+      .catch(() => { setErr("Tidak bisa mengakses kamera. Izinkan akses atau pakai Upload."); setCam(null); });
     return () => { active = false; streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; };
-  }, [camIdx]);
+  }, [cam]);
 
   useEffect(() => {
     if (nasabah) return;
@@ -143,15 +145,28 @@ export default function GadaiBaruPage() {
     }
   }
 
-  // Ambil foto webcam → tambahkan ke galeri barang (modal tetap terbuka).
-  function captureJaminan() {
+  // Ambil foto webcam. Barang: tambah ke galeri (modal tetap terbuka).
+  // Nasabah: foto dokumentasi transaksi (modal ditutup).
+  function capture() {
     const v = videoRef.current;
-    if (!v || !v.videoWidth || camIdx === null) return;
-    const idx = camIdx;
+    if (!v || !v.videoWidth || !cam) return;
+    if (cam.kind === "nasabah") {
+      setFotoNasabah(frameToDataUrl(v, 480, 0.7));
+      setCam(null);
+      return;
+    }
+    const idx = cam.idx;
     const dataUrl = frameToDataUrl(v, 640, 0.8);
     const cur = barang[idx]?.fotos || [];
     setB(idx, { fotos: [...cur, dataUrl].slice(0, 8) });
     if (cur.length === 0) taksir(idx, [dataUrl]); // auto-taksir dari foto pertama
+  }
+
+  async function uploadNasabah(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setFotoNasabah(await compressImage(file, 480, 0.7));
   }
 
   async function uploadJaminan(idx: number, e: React.ChangeEvent<HTMLInputElement>) {
@@ -194,7 +209,7 @@ export default function GadaiBaruPage() {
       body: JSON.stringify({
         nasabah_id: nasabah.id, tgl_gadai: tglGadai, tempo_hari: tempoHari,
         periode_hari: periodeHari, bunga_persen: Number(bunga), biaya_admin: Number(biayaAdmin),
-        pokok: Number(pokok),
+        pokok: Number(pokok), foto_nasabah: fotoNasabah || null,
         barang: validBarang.map((b) => ({
           jenis: b.jenis, nama: b.nama, berat_gram: b.berat_gram || null,
           kadar: b.kadar || null, taksiran: Number(b.taksiran), fotos: b.fotos,
@@ -222,13 +237,40 @@ export default function GadaiBaruPage() {
           <section className="card p-5">
             <h2 className="font-bold text-navy-900 mb-3"><i className="bi bi-person me-2 text-navy-500" />Nasabah</h2>
             {nasabah ? (
-              <div className="flex items-center justify-between bg-navy-50 rounded-xl px-4 py-3">
-                <div>
-                  <div className="font-semibold text-navy-900">{nasabah.nama}</div>
-                  <div className="text-xs text-slate-500 tnum">{nasabah.no_hp || "—"}</div>
+              <>
+                <div className="flex items-center justify-between bg-navy-50 rounded-xl px-4 py-3">
+                  <div>
+                    <div className="font-semibold text-navy-900">{nasabah.nama}</div>
+                    <div className="text-xs text-slate-500 tnum">{nasabah.no_hp || "—"}</div>
+                  </div>
+                  <button className="text-sm text-navy-600 hover:underline" onClick={() => { setNasabah(null); setQ(""); setFotoNasabah(""); }}>Ganti</button>
                 </div>
-                <button className="text-sm text-navy-600 hover:underline" onClick={() => { setNasabah(null); setQ(""); }}>Ganti</button>
-              </div>
+
+                {/* Foto nasabah — dokumentasi transaksi */}
+                <div className="flex items-center gap-3 mt-3">
+                  <div className="w-16 h-16 rounded-lg bg-navy-50 border border-slate-200 overflow-hidden grid place-items-center shrink-0">
+                    {fotoNasabah ? <img src={fotoNasabah} alt="" className="w-full h-full object-cover" /> : <i className="bi bi-person-bounding-box text-2xl text-slate-300" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-navy-800">Foto Nasabah (dokumentasi)</div>
+                    <div className="text-[11px] text-slate-400 mb-1.5">Bukti nasabah hadir saat transaksi (opsional).</div>
+                    <div className="flex gap-2">
+                      <button type="button" className="btn-ghost text-xs py-1.5" onClick={() => { setErr(""); setCam({ kind: "nasabah" }); }}>
+                        <i className="bi bi-camera" /> Foto
+                      </button>
+                      <label className="btn-ghost text-xs py-1.5 cursor-pointer">
+                        <input type="file" accept="image/*" capture="user" className="hidden" onChange={uploadNasabah} />
+                        <i className="bi bi-upload" /> Upload
+                      </label>
+                      {fotoNasabah && (
+                        <button type="button" className="btn-ghost text-xs py-1.5" onClick={() => setFotoNasabah("")}>
+                          <i className="bi bi-trash3 text-red-500" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
             ) : showNew ? (
               <div className="space-y-3">
                 <input className="input" placeholder="Nama lengkap" value={baru.nama} onChange={(e) => setBaru({ ...baru, nama: e.target.value })} />
@@ -330,7 +372,7 @@ export default function GadaiBaruPage() {
                       ))}
                       {b.fotos.length < 8 && (
                         <>
-                          <button type="button" onClick={() => { setErr(""); setCamIdx(i); }}
+                          <button type="button" onClick={() => { setErr(""); setCam({ kind: "barang", idx: i }); }}
                             className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 grid place-items-center text-slate-400 hover:border-navy-400 hover:text-navy-500"><i className="bi bi-camera text-lg" /></button>
                           <label className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 grid place-items-center text-slate-400 hover:border-navy-400 hover:text-navy-500 cursor-pointer">
                             <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(e) => uploadJaminan(i, e)} />
@@ -422,19 +464,25 @@ export default function GadaiBaruPage() {
         </div>
       </div>
       {/* Modal kamera jaminan */}
-      {camIdx !== null && (
+      {cam && (
         <div className="fixed inset-0 z-[60] bg-black/85 grid place-items-center p-4">
           <div className="w-full max-w-md bg-navy-950 rounded-2xl overflow-hidden">
             <div className="relative bg-black aspect-[4/3]">
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-              <div className="absolute inset-6 border-2 border-white/70 rounded-lg pointer-events-none" />
+              {cam.kind === "nasabah" ? (
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-52 border-2 border-white/70 rounded-[50%] pointer-events-none" />
+              ) : (
+                <div className="absolute inset-6 border-2 border-white/70 rounded-lg pointer-events-none" />
+              )}
               <div className="absolute bottom-2 inset-x-0 text-center text-white/80 text-xs">
-                {camIdx !== null ? `${barang[camIdx]?.fotos.length || 0} foto diambil` : ""} · posisikan barang di dalam kotak
+                {cam.kind === "nasabah"
+                  ? "Posisikan wajah nasabah di dalam oval"
+                  : `${barang[cam.idx]?.fotos.length || 0} foto diambil · posisikan barang di dalam kotak`}
               </div>
             </div>
             <div className="flex gap-2 p-3">
-              <button type="button" className="btn-ghost flex-1" onClick={() => setCamIdx(null)}>Selesai</button>
-              <button type="button" className="btn-gold flex-1" onClick={captureJaminan}><i className="bi bi-camera" /> Ambil Foto</button>
+              <button type="button" className="btn-ghost flex-1" onClick={() => setCam(null)}>{cam.kind === "nasabah" ? "Tutup" : "Selesai"}</button>
+              <button type="button" className="btn-gold flex-1" onClick={capture}><i className="bi bi-camera" /> Ambil Foto</button>
             </div>
           </div>
         </div>
