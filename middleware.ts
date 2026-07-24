@@ -14,6 +14,7 @@ const PUBLIC_ROUTES = [
   "/sso",
   "/simulasi",
   "/api/simulasi",
+  "/landing",
 ];
 
 export function middleware(req: NextRequest) {

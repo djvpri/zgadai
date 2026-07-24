@@ -172,6 +172,83 @@ export function cetakNota(n: NotaData, shop: { nama: string; alamat?: string | n
   printViaIframe(html);
 }
 
+// ---- Cetak Brosur A5 (untuk marketing) ----
+export function cetakBrosur(d: {
+  usaha: string; alamat?: string | null; wa?: string | null;
+  sim: { bunga_persen: number; periode_hari: number; plafon_persen: number };
+  promo?: { nama: string; diskon: number; sampai?: string } | null;
+  simulasiUrl: string;
+}) {
+  const bunga = d.promo ? +(d.sim.bunga_persen * (1 - d.promo.diskon / 100)).toFixed(3) : d.sim.bunga_persen;
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(d.simulasiUrl)}`;
+  const benefits = [
+    ["&#9889;", "Proses Cepat", "Pengajuan simpel, dana cair hari itu juga."],
+    ["&#128176;", "Bunga Ringan", `Mulai ${bunga}% per ${d.sim.periode_hari} hari.`],
+    ["&#128274;", "Barang Aman", "Disimpan rapi & terjaga hingga ditebus."],
+    ["&#129302;", "Taksir Instan (AI)", "Foto barang, langsung tahu perkiraan nilainya."],
+  ].map(([i, t, s]) => `<div class="b"><div class="bi">${i}</div><div><b>${t}</b><br><span class="muted">${s}</span></div></div>`).join("");
+
+  const html = `<!doctype html><html lang="id"><head><meta charset="utf-8">
+<title>Brosur ${esc(d.usaha)}</title>
+<style>
+  @page { size: A5; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color:#0b1a3a; margin:0; font-size:12px; }
+  .hero { background:#0b1a3a; color:#fff; border-radius:12px; padding:16px; text-align:center; }
+  .hero .brand { font-size:22px; font-weight:800; }
+  .hero .gold { color:#e2c268; }
+  .hero .tag { font-size:14px; font-weight:700; margin-top:6px; }
+  .hero .sub { color:#c5d3e9; font-size:11px; margin-top:3px; }
+  .promo { background:#ecfdf5; border:1.5px solid #10b981; color:#065f46; border-radius:10px; padding:8px 10px; text-align:center; font-weight:700; margin:10px 0; }
+  .promo small { display:block; font-weight:500; color:#047857; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0; }
+  .b { display:flex; gap:8px; align-items:flex-start; border:1px solid #e2e8f0; border-radius:8px; padding:8px; }
+  .bi { font-size:18px; }
+  .muted { color:#64748b; font-size:10px; }
+  .how { background:#f1f5fb; border-radius:10px; padding:10px 12px; margin:10px 0; }
+  .how h3 { margin:0 0 6px; font-size:12px; }
+  .how ol { margin:0; padding-left:18px; }
+  .foot { display:flex; gap:12px; align-items:center; border-top:2px solid #0b1a3a; padding-top:10px; margin-top:10px; }
+  .foot .qr { width:78px; height:78px; }
+  .foot .info { flex:1; font-size:11px; }
+  .foot .wa { color:#059669; font-weight:700; font-size:13px; }
+  .center { text-align:center; }
+</style></head><body>
+  <div class="hero">
+    <div class="brand">${esc(d.usaha)} <span class="gold">&#128274;</span></div>
+    <div class="sub">Layanan Gadai Terpercaya</div>
+    <div class="tag">Butuh Dana Cepat?<br>Gadai Aman, Bunga Ringan.</div>
+  </div>
+
+  ${d.promo ? `<div class="promo">&#127881; PROMO ${esc(d.promo.nama)} &mdash; Diskon Bunga ${d.promo.diskon}%!<small>Bunga spesial ${bunga}% per ${d.sim.periode_hari} hari${d.promo.sampai ? ` &middot; s/d ${tanggalID(d.promo.sampai)}` : ""}</small></div>` : ""}
+
+  <div class="grid">${benefits}</div>
+
+  <div class="how">
+    <h3>Cara Gadai — 3 Langkah Mudah</h3>
+    <ol>
+      <li>Bawa / foto barang jaminan (emas, elektronik, kendaraan, dll).</li>
+      <li>Barang ditaksir &rarr; dana langsung cair.</li>
+      <li>Tebus, perpanjang, atau cicil kapan saja sebelum jatuh tempo.</li>
+    </ol>
+  </div>
+
+  <div class="center muted">Plafon hingga ${d.sim.plafon_persen}% dari nilai taksiran barang.</div>
+
+  <div class="foot">
+    <img class="qr" src="${qr}" alt="QR Simulasi">
+    <div class="info">
+      <b>Hitung sendiri, scan di sini &#128241;</b><br>
+      <span class="muted">${esc(d.simulasiUrl)}</span>
+      ${d.wa ? `<div class="wa">&#128222; WhatsApp: ${esc(d.wa)}</div>` : ""}
+      ${d.alamat ? `<div class="muted">&#128205; ${esc(d.alamat)}</div>` : ""}
+    </div>
+  </div>
+</body></html>`;
+
+  printViaIframe(html);
+}
+
 function printViaIframe(html: string) {
   const iframe = document.createElement("iframe");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
