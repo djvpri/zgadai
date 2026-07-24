@@ -6,8 +6,8 @@ import { currentSession } from "@/lib/auth";
 export async function GET() {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const row = await dbOne<any>(`SELECT settings FROM tenants WHERE id = $1`, [s.tenant_id]);
-  return NextResponse.json({ settings: row?.settings || {} });
+  const row = await dbOne<any>(`SELECT nama_usaha, settings FROM tenants WHERE id = $1`, [s.tenant_id]);
+  return NextResponse.json({ nama_usaha: row?.nama_usaha || "", settings: row?.settings || {} });
 }
 
 // POST /api/settings -> merge setting (admin saja). Body: { harga_emas_per_gram }
@@ -37,10 +37,14 @@ export async function POST(req: NextRequest) {
     if (arr.length) patch.jenis_barang = arr;
   }
 
-  if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Tidak ada yang diubah" }, { status: 400 });
+  const nama = typeof b.nama_usaha === "string" ? b.nama_usaha.trim().slice(0, 100) : "";
+  const hasPatch = Object.keys(patch).length > 0;
+  if (!nama && !hasPatch) return NextResponse.json({ error: "Tidak ada yang diubah" }, { status: 400 });
 
-  await dbRun(`UPDATE tenants SET settings = COALESCE(settings,'{}'::jsonb) || $1::jsonb, updated_at = now() WHERE id = $2`,
+  if (nama) await dbRun(`UPDATE tenants SET nama_usaha = $1, updated_at = now() WHERE id = $2`, [nama, s.tenant_id]);
+  if (hasPatch) await dbRun(`UPDATE tenants SET settings = COALESCE(settings,'{}'::jsonb) || $1::jsonb, updated_at = now() WHERE id = $2`,
     [JSON.stringify(patch), s.tenant_id]);
-  const row = await dbOne<any>(`SELECT settings FROM tenants WHERE id = $1`, [s.tenant_id]);
-  return NextResponse.json({ settings: row?.settings || {} });
+
+  const row = await dbOne<any>(`SELECT nama_usaha, settings FROM tenants WHERE id = $1`, [s.tenant_id]);
+  return NextResponse.json({ nama_usaha: row?.nama_usaha || "", settings: row?.settings || {} });
 }

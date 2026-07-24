@@ -14,6 +14,7 @@ export default function PengaturanPage() {
   const [admin, setAdmin] = useState("0");
   const [adminPersen, setAdminPersen] = useState("0");
   const [denda, setDenda] = useState("0");
+  const [namaToko, setNamaToko] = useState("");
   const [wa, setWa] = useState("");
   const [alamatToko, setAlamatToko] = useState("");
   const [jenis, setJenis] = useState<string[]>(DEFAULT_JENIS);
@@ -27,6 +28,7 @@ export default function PengaturanPage() {
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then((d) => {
       const s = d.settings || {};
+      if (d.nama_usaha) setNamaToko(d.nama_usaha);
       if (s.harga_emas_per_gram) setHarga(String(s.harga_emas_per_gram));
       if (s.plafon_persen) setPlafon(String(s.plafon_persen));
       if (s.bunga_persen !== undefined) setBunga(String(s.bunga_persen));
@@ -53,6 +55,7 @@ export default function PengaturanPage() {
     const r = await fetch("/api/settings", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        nama_usaha: namaToko,
         harga_emas_per_gram: Number(harga || 0),
         plafon_persen: Number(plafon || 90),
         bunga_persen: Number(bunga || 0),
@@ -131,7 +134,13 @@ export default function PengaturanPage() {
 
         {/* Kontak toko */}
         <section className="card p-5 space-y-3 lg:col-span-2">
-          <h2 className="font-bold text-navy-900"><i className="bi bi-shop me-2 text-navy-500" />Kontak Toko</h2>
+          <h2 className="font-bold text-navy-900"><i className="bi bi-shop me-2 text-navy-500" />Identitas & Kontak Toko</h2>
+          <div>
+            <label className="label">Nama Toko</label>
+            <input className="input" placeholder="Nama usaha gadai" disabled={loading}
+              value={namaToko} onChange={(e) => setNamaToko(e.target.value)} />
+            <p className="text-[11px] text-slate-400 mt-1">Tampil di kop SBG, nota, portal nasabah & sidebar.</p>
+          </div>
           <div className="grid md:grid-cols-2 gap-3">
             <div>
               <label className="label">No. WhatsApp toko</label>
