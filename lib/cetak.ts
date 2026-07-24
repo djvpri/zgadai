@@ -98,6 +98,75 @@ export function cetakSBG(
   printViaIframe(html);
 }
 
+// ---- Cetak Nota pembayaran (thermal 80mm) ----
+export interface NotaData {
+  no_sbg: string;
+  nasabah: string;
+  jenis: "tebus" | "perpanjang" | "cicil";
+  tgl: string;
+  bunga: number;
+  denda: number;
+  pokok_dibayar: number;
+  total: number;
+  sisa_pokok: number;
+  jatuh_tempo_baru?: string | null;
+  lunas: boolean;
+}
+
+const JENIS_NOTA: Record<string, string> = {
+  tebus: "Tebus / Pelunasan",
+  perpanjang: "Perpanjang",
+  cicil: "Cicil Pokok",
+};
+
+export function cetakNota(n: NotaData, shop: { nama: string; alamat?: string | null; wa?: string | null }) {
+  const line = (k: string, v: string, strong = false) =>
+    `<div class="row${strong ? " s" : ""}"><span>${esc(k)}</span><span class="tnum">${v}</span></div>`;
+
+  const html = `<!doctype html><html lang="id"><head><meta charset="utf-8">
+<title>Nota ${esc(n.no_sbg)}</title>
+<style>
+  @page { size: 80mm auto; margin: 4mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Consolas','Courier New',monospace; color:#000; font-size:12px; margin:0; width:72mm; }
+  .c { text-align:center; }
+  .b { font-weight:700; }
+  .brand { font-size:15px; font-weight:700; }
+  .muted { color:#333; font-size:10px; }
+  .hr { border-top:1px dashed #000; margin:6px 0; }
+  .row { display:flex; justify-content:space-between; gap:8px; padding:1px 0; }
+  .row.s { font-weight:700; font-size:13px; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .badge { text-align:center; font-weight:700; border:1px solid #000; border-radius:4px; padding:3px; margin:6px 0; }
+  .foot { text-align:center; font-size:10px; margin-top:8px; }
+</style></head><body>
+  <div class="c">
+    <div class="brand">${esc(shop.nama)}</div>
+    ${shop.alamat ? `<div class="muted">${esc(shop.alamat)}</div>` : ""}
+    ${shop.wa ? `<div class="muted">WA ${esc(shop.wa)}</div>` : ""}
+  </div>
+  <div class="hr"></div>
+  <div class="c b">BUKTI PEMBAYARAN</div>
+  <div class="c muted">${esc(JENIS_NOTA[n.jenis] || n.jenis)}</div>
+  <div class="hr"></div>
+  ${line("No. SBG", esc(n.no_sbg))}
+  ${line("Tanggal", tanggalID(n.tgl))}
+  ${line("Nasabah", esc(n.nasabah))}
+  <div class="hr"></div>
+  ${n.bunga > 0 ? line("Bunga", rupiah(n.bunga)) : ""}
+  ${n.denda > 0 ? line("Denda", rupiah(n.denda)) : ""}
+  ${n.pokok_dibayar > 0 ? line("Pokok dibayar", rupiah(n.pokok_dibayar)) : ""}
+  ${line("TOTAL BAYAR", rupiah(n.total), true)}
+  <div class="hr"></div>
+  ${n.lunas
+    ? `<div class="badge">LUNAS — Barang dapat diambil</div>`
+    : `${line("Sisa pokok", rupiah(n.sisa_pokok))}${n.jatuh_tempo_baru ? line("Jatuh tempo", tanggalID(n.jatuh_tempo_baru)) : ""}`}
+  <div class="foot">Terima kasih.<br>Simpan nota ini sebagai bukti.</div>
+</body></html>`;
+
+  printViaIframe(html);
+}
+
 function printViaIframe(html: string) {
   const iframe = document.createElement("iframe");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";

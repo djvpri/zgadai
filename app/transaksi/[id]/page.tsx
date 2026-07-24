@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import { rupiah, tanggalID, statusJatuhTempo, STATUS_BADGE, waLink } from "@/lib/gadai";
-import { cetakSBG } from "@/lib/cetak";
+import { cetakSBG, cetakNota } from "@/lib/cetak";
 
 type Aksi = "tebus" | "perpanjang" | "cicil" | "lelang" | null;
 
@@ -16,6 +16,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   const [hargaLelang, setHargaLelang] = useState("");
   const [proc, setProc] = useState(false);
   const [toast, setToast] = useState("");
+  const [lastPay, setLastPay] = useState<any>(null);
 
   const load = useCallback(() => {
     fetch(`/api/gadai/${id}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
@@ -54,6 +55,19 @@ export default function DetailPage({ params }: { params: { id: string } }) {
     setProc(false);
     const d = await r.json();
     if (r.ok) {
+      if (aksi !== "lelang") {
+        const gd = data.gadai;
+        const sisa = aksi === "tebus" ? 0
+          : aksi === "cicil" ? Math.max(0, Number(gd.pokok_sisa) - (d.pokok_dibayar || 0))
+          : Number(gd.pokok_sisa);
+        setLastPay({
+          no_sbg: gd.no_sbg, nasabah: gd.nasabah_nama, jenis: aksi,
+          tgl: new Date().toISOString().slice(0, 10),
+          bunga: d.bunga || 0, denda: d.denda || 0, pokok_dibayar: d.pokok_dibayar || 0, total: d.total || 0,
+          sisa_pokok: sisa, jatuh_tempo_baru: d.jatuh_tempo_baru || null,
+          lunas: aksi === "tebus" || (aksi === "cicil" && sisa === 0),
+        });
+      }
       setAksi(null); setCicil(""); setHargaLelang("");
       setToast(aksi === "tebus" ? "Barang ditebus / lunas" : aksi === "perpanjang" ? "Gadai diperpanjang"
         : aksi === "cicil" ? "Cicilan tercatat" : "Barang ditandai lelang");
@@ -253,6 +267,28 @@ export default function DetailPage({ params }: { params: { id: string } }) {
               <button className="btn-ghost" onClick={() => setAksi(null)} disabled={proc}>Batal</button>
               <button className="btn-gold" onClick={proses} disabled={proc || (aksi === "cicil" && Number(cicil) <= 0) || (aksi === "lelang" && hargaLelang === "")}>
                 {proc ? "Memproses…" : "Konfirmasi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sukses pembayaran + cetak nota */}
+      {lastPay && (
+        <div className="fixed inset-0 z-50 bg-navy-950/40 grid place-items-center p-4">
+          <div className="card p-6 w-full max-w-sm text-center">
+            <div className="w-14 h-14 mx-auto rounded-full bg-emerald-100 text-emerald-600 grid place-items-center text-2xl mb-3">
+              <i className="bi bi-check-lg" />
+            </div>
+            <h3 className="text-lg font-bold text-navy-900">Pembayaran berhasil</h3>
+            <p className="text-sm text-slate-500 capitalize mt-0.5">{lastPay.jenis} · <span className="tnum">{rupiah(lastPay.total)}</span></p>
+            {lastPay.lunas
+              ? <p className="text-emerald-600 text-sm font-semibold mt-1">LUNAS — barang dapat diambil</p>
+              : <p className="text-slate-500 text-xs mt-1 tnum">Sisa pokok {rupiah(lastPay.sisa_pokok)}{lastPay.jatuh_tempo_baru ? ` · JT ${tanggalID(lastPay.jatuh_tempo_baru)}` : ""}</p>}
+            <div className="flex gap-2 justify-center mt-5">
+              <button className="btn-ghost" onClick={() => setLastPay(null)}>Tutup</button>
+              <button className="btn-gold" onClick={() => cetakNota(lastPay, { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa })}>
+                <i className="bi bi-printer" /> Cetak Nota
               </button>
             </div>
           </div>
