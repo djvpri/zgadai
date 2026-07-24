@@ -12,6 +12,8 @@ const PUBLIC_ROUTES = [
   "/api/health",
   "/api/admin/cross-app",
   "/sso",
+  "/simulasi",
+  "/api/simulasi",
 ];
 
 export function middleware(req: NextRequest) {
