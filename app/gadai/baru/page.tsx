@@ -38,6 +38,21 @@ export default function GadaiBaruPage() {
   const [plafonPersen, setPlafonPersen] = useState(90);
   const [adminTetap, setAdminTetap] = useState(0);
   const [adminPersen, setAdminPersen] = useState(0);
+  const [promos, setPromos] = useState<any[]>([]);
+  const [baseBunga, setBaseBunga] = useState(2);
+
+  useEffect(() => {
+    fetch("/api/promo").then((r) => r.json()).then((d) => setPromos(d.promo || [])).catch(() => {});
+  }, []);
+
+  // Terapkan diskon bunga promo yang berjalan pada tanggal gadai.
+  useEffect(() => {
+    const ap = promos.find((p) => p.aktif && tglGadai >= p.tgl_mulai && tglGadai <= p.tgl_selesai);
+    setBunga(ap
+      ? String(+(baseBunga * (1 - Number(ap.diskon_bunga_persen) / 100)).toFixed(3))
+      : String(baseBunga));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promos, tglGadai, baseBunga]);
 
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then((d) => {
@@ -45,7 +60,7 @@ export default function GadaiBaruPage() {
       setHargaEmas(Number(s.harga_emas_per_gram || 0));
       if (Array.isArray(s.jenis_barang) && s.jenis_barang.length) setJenisOpts(s.jenis_barang);
       if (s.plafon_persen) setPlafonPersen(Number(s.plafon_persen));
-      if (s.bunga_persen !== undefined) setBunga(String(s.bunga_persen));
+      if (s.bunga_persen !== undefined) { setBunga(String(s.bunga_persen)); setBaseBunga(Number(s.bunga_persen) || 2); }
       if (s.periode_hari) setPeriodeHari(Number(s.periode_hari));
       if (s.tempo_hari) setTempoHari(Number(s.tempo_hari));
       const at = Number(s.biaya_admin || 0);
@@ -83,6 +98,7 @@ export default function GadaiBaruPage() {
   const totalTaksiran = barang.reduce((s, b) => s + Number(b.taksiran || 0), 0);
   const saranPlafon = plafon(totalTaksiran, plafonPersen);
   const jatuhTempo = tambahHari(tglGadai, tempoHari);
+  const activePromo = promos.find((p) => p.aktif && tglGadai >= p.tgl_mulai && tglGadai <= p.tgl_selesai) || null;
 
   function setB(i: number, patch: Partial<Barang>) {
     setBarang((prev) => prev.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
@@ -210,6 +226,7 @@ export default function GadaiBaruPage() {
         nasabah_id: nasabah.id, tgl_gadai: tglGadai, tempo_hari: tempoHari,
         periode_hari: periodeHari, bunga_persen: Number(bunga), biaya_admin: Number(biayaAdmin),
         pokok: Number(pokok), foto_nasabah: fotoNasabah || null,
+        promo_nama: activePromo?.nama || null,
         barang: validBarang.map((b) => ({
           jenis: b.jenis, nama: b.nama, berat_gram: b.berat_gram || null,
           kadar: b.kadar || null, taksiran: Number(b.taksiran), fotos: b.fotos,
@@ -424,6 +441,11 @@ export default function GadaiBaruPage() {
               <p className="text-[11px] text-slate-400 mt-1">Plafon = {plafonPersen}% taksiran</p>
             </div>
 
+            {activePromo && (
+              <div className="bg-gold-50 border border-gold-200 rounded-lg px-3 py-2 text-[11px] text-gold-700">
+                <i className="bi bi-tags-fill me-1" />Promo <b>{activePromo.nama}</b>: diskon bunga {Number(activePromo.diskon_bunga_persen)}% &rarr; bunga {bunga}%/periode
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">Bunga %/periode</label>

@@ -170,6 +170,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
             <Row k="Pokok Awal" v={rupiah(g.pokok)} />
             <Row k="Sisa Pokok" v={rupiah(g.pokok_sisa)} bold />
             <Row k="Bunga" v={`${g.bunga_persen}% / ${g.periode_hari} hr`} />
+            {g.promo_nama && <Row k="Promo" v={g.promo_nama} />}
             <Row k="Tgl Gadai" v={tanggalID(g.tgl_gadai)} />
             <Row k="Jatuh Tempo" v={tanggalID(g.tgl_jatuh_tempo)} />
 

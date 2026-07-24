@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
-import { rupiah } from "@/lib/gadai";
+import { rupiah, tanggalID } from "@/lib/gadai";
 
 const DEFAULT_JENIS = ["emas", "elektronik", "kendaraan", "lainnya"];
 
@@ -19,6 +19,8 @@ export default function PengaturanPage() {
   const [alamatToko, setAlamatToko] = useState("");
   const [jenis, setJenis] = useState<string[]>(DEFAULT_JENIS);
   const [newJenis, setNewJenis] = useState("");
+  const [promos, setPromos] = useState<any[]>([]);
+  const [np, setNp] = useState({ nama: "", tgl_mulai: "", tgl_selesai: "", diskon: "" });
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,6 +44,26 @@ export default function PengaturanPage() {
       if (Array.isArray(s.jenis_barang) && s.jenis_barang.length) setJenis(s.jenis_barang);
     }).finally(() => setLoading(false));
   }, []);
+
+  function loadPromos() {
+    fetch("/api/promo").then((r) => r.json()).then((d) => setPromos(d.promo || [])).catch(() => {});
+  }
+  useEffect(() => { loadPromos(); }, []);
+
+  async function addPromo() {
+    if (!np.nama.trim() || !np.tgl_mulai || !np.tgl_selesai) { setErr("Nama & periode promo wajib diisi"); return; }
+    const r = await fetch("/api/promo", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nama: np.nama, tgl_mulai: np.tgl_mulai, tgl_selesai: np.tgl_selesai, diskon_bunga_persen: Number(np.diskon || 0) }),
+    });
+    if (r.ok) { setNp({ nama: "", tgl_mulai: "", tgl_selesai: "", diskon: "" }); setErr(""); loadPromos(); }
+    else { const d = await r.json(); setErr(d.error || "Gagal menambah promo"); }
+  }
+  async function delPromo(id: number) { await fetch(`/api/promo/${id}`, { method: "DELETE" }); loadPromos(); }
+  async function togglePromo(id: number, aktif: boolean) {
+    await fetch(`/api/promo/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aktif }) });
+    loadPromos();
+  }
 
   function addJenis() {
     const v = newJenis.trim().toLowerCase();
@@ -177,6 +199,56 @@ export default function PengaturanPage() {
             <button className="btn-ghost" onClick={addJenis} type="button"><i className="bi bi-plus-lg" /></button>
           </div>
           <p className="text-[11px] text-slate-400">Muncul sebagai pilihan di form barang jaminan. &ldquo;emas&rdquo; dipakai untuk taksir otomatis via harga emas.</p>
+        </section>
+
+        {/* Promo diskon bunga (gadai baru) */}
+        <section className="card p-5 space-y-3 lg:col-span-2">
+          <h2 className="font-bold text-navy-900"><i className="bi bi-tags-fill me-2 text-gold-500" />Promo Diskon Bunga</h2>
+          <p className="text-[11px] text-slate-400 -mt-1">Gadai <b>baru</b> yang dibuat dalam periode promo otomatis dapat diskon bunga.</p>
+
+          {promos.length === 0 ? (
+            <p className="text-sm text-slate-400">Belum ada promo.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {promos.map((p) => {
+                const today = new Date().toISOString().slice(0, 10);
+                const st = !p.aktif ? { t: "Nonaktif", c: "text-slate-400" }
+                  : today < p.tgl_mulai ? { t: "Terjadwal", c: "text-amber-600" }
+                  : today > p.tgl_selesai ? { t: "Selesai", c: "text-slate-400" }
+                  : { t: "Berjalan", c: "text-emerald-600" };
+                return (
+                  <li key={p.id} className="flex items-center gap-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-navy-900 truncate">
+                        {p.nama} <span className="text-xs font-semibold text-gold-600">−{Number(p.diskon_bunga_persen)}% bunga</span>
+                      </div>
+                      <div className="text-xs text-slate-500 tnum">
+                        {tanggalID(p.tgl_mulai)} – {tanggalID(p.tgl_selesai)} · <span className={st.c}>{st.t}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => togglePromo(p.id, !p.aktif)}
+                      className="text-xs font-semibold text-navy-600 hover:underline">{p.aktif ? "Nonaktifkan" : "Aktifkan"}</button>
+                    <button onClick={() => delPromo(p.id)} className="text-slate-400 hover:text-red-500"><i className="bi bi-trash3" /></button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <div className="border-t border-slate-100 pt-3 grid md:grid-cols-4 gap-2">
+            <input className="input md:col-span-2" placeholder="Nama promo (mis. Promo Lebaran)"
+              value={np.nama} onChange={(e) => setNp({ ...np, nama: e.target.value })} />
+            <div><label className="label">Mulai</label><input type="date" className="input" value={np.tgl_mulai} onChange={(e) => setNp({ ...np, tgl_mulai: e.target.value })} /></div>
+            <div><label className="label">Selesai</label><input type="date" className="input" value={np.tgl_selesai} onChange={(e) => setNp({ ...np, tgl_selesai: e.target.value })} /></div>
+            <div className="flex items-end gap-2 md:col-span-4">
+              <div>
+                <label className="label">Diskon bunga %</label>
+                <input className="input tnum max-w-[140px]" inputMode="decimal" placeholder="mis. 50"
+                  value={np.diskon} onChange={(e) => setNp({ ...np, diskon: e.target.value.replace(/[^\d.]/g, "") })} />
+              </div>
+              <button className="btn-primary" onClick={addPromo}><i className="bi bi-plus-lg" /> Tambah Promo</button>
+            </div>
+          </div>
         </section>
       </div>
     </AppShell>
