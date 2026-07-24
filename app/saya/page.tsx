@@ -10,6 +10,7 @@ export default function SayaPage() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"pinjaman" | "simulasi">("pinjaman");
 
   useEffect(() => {
     fetch("/api/saya")
@@ -38,27 +39,39 @@ export default function SayaPage() {
           <div className="p-10 text-center text-slate-400">Memuat…</div>
         ) : (
           <>
-            <div className="mb-5">
+            <div className="mb-4">
               <h1 className="text-xl font-bold text-navy-900">Halo, {data?.nasabah?.nama || "Nasabah"}</h1>
-              <p className="text-sm text-slate-500">Berikut pinjaman gadai atas nama Anda.</p>
             </div>
 
-            {(!data?.gadai || data.gadai.length === 0) ? (
-              <div className="card p-8 text-center">
-                <i className="bi bi-safe2 text-3xl text-slate-300" />
-                <p className="font-semibold text-slate-600 mt-3">Belum ada data pinjaman</p>
-                <p className="text-sm text-slate-400">Pastikan email ini yang didaftarkan oleh tempat gadai.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {data.gadai.map((g: any) => <GadaiCard key={g.id} g={g} nama={data?.nasabah?.nama || ""} />)}
-              </div>
-            )}
+            {/* Tab */}
+            <div className="flex gap-2 mb-4">
+              {[
+                { k: "pinjaman", label: "Pinjaman Saya", icon: "bi-safe2" },
+                { k: "simulasi", label: "Simulasi", icon: "bi-calculator" },
+              ].map((t) => (
+                <button key={t.k} onClick={() => setTab(t.k as any)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                    tab === t.k ? "bg-navy-800 text-white" : "bg-white border border-slate-200 text-navy-700"
+                  }`}>
+                  <i className={`bi ${t.icon}`} /> {t.label}
+                </button>
+              ))}
+            </div>
 
-            {data?.sim && (
-              <div className="mt-4">
-                <SimulasiCard sim={data.sim} />
-              </div>
+            {tab === "pinjaman" ? (
+              (!data?.gadai || data.gadai.length === 0) ? (
+                <div className="card p-8 text-center">
+                  <i className="bi bi-safe2 text-3xl text-slate-300" />
+                  <p className="font-semibold text-slate-600 mt-3">Belum ada data pinjaman</p>
+                  <p className="text-sm text-slate-400">Pastikan email ini yang didaftarkan oleh tempat gadai.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {data.gadai.map((g: any) => <GadaiCard key={g.id} g={g} nama={data?.nasabah?.nama || ""} />)}
+                </div>
+              )
+            ) : (
+              data?.sim && <SimulasiCard sim={data.sim} />
             )}
 
             <p className="text-center text-xs text-slate-400 mt-8">
