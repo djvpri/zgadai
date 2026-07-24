@@ -227,6 +227,7 @@ export default function GadaiBaruPage() {
         periode_hari: periodeHari, bunga_persen: Number(bunga), biaya_admin: Number(biayaAdmin),
         pokok: Number(pokok), foto_nasabah: fotoNasabah || null,
         promo_nama: activePromo?.nama || null,
+        promo_diskon: activePromo ? Number(activePromo.diskon_bunga_persen) : null,
         barang: validBarang.map((b) => ({
           jenis: b.jenis, nama: b.nama, berat_gram: b.berat_gram || null,
           kadar: b.kadar || null, taksiran: Number(b.taksiran), fotos: b.fotos,

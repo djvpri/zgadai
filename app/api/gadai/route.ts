@@ -52,12 +52,13 @@ export async function POST(req: NextRequest) {
     const fotoNasabah = typeof b.foto_nasabah === "string" && b.foto_nasabah.startsWith("data:image/") && b.foto_nasabah.length < 300_000
       ? b.foto_nasabah : null;
     const promoNama = b.promo_nama ? String(b.promo_nama).slice(0, 100) : null;
+    const promoDiskon = promoNama && b.promo_diskon != null ? Math.max(0, Number(b.promo_diskon) || 0) : null;
     const ins = await client.query(
       `INSERT INTO gadai (tenant_id, no_sbg, nasabah_id, tgl_gadai, tgl_jatuh_tempo,
-                          periode_hari, bunga_persen, taksiran, pokok, pokok_sisa, biaya_admin, keterangan, created_by, foto_nasabah, promo_nama)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12,$13,$14) RETURNING id`,
+                          periode_hari, bunga_persen, taksiran, pokok, pokok_sisa, biaya_admin, keterangan, created_by, foto_nasabah, promo_nama, promo_diskon)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
       [s.tenant_id, "tmp-" + Date.now(), nasabahId, tglGadai, jatuhTempo,
-       periodeHari, bungaPersen, taksiran, pokok, biayaAdmin, b.keterangan || null, s.user_id, fotoNasabah, promoNama]
+       periodeHari, bungaPersen, taksiran, pokok, biayaAdmin, b.keterangan || null, s.user_id, fotoNasabah, promoNama, promoDiskon]
     );
     const id = ins.rows[0].id as number;
     const noSbg = "SBG" + String(id).padStart(5, "0");

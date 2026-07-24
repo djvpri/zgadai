@@ -10,6 +10,7 @@ interface SBGGadai {
   no_sbg: string; tgl_gadai: string; tgl_jatuh_tempo: string;
   bunga_persen: number | string; periode_hari: number; taksiran: number; pokok: number; biaya_admin: number;
   nasabah_nama: string; nasabah_hp?: string | null; nasabah_ktp?: string | null; nasabah_alamat?: string | null;
+  promo_nama?: string | null; promo_diskon?: number | string | null;
 }
 
 export function cetakSBG(
@@ -59,6 +60,8 @@ export function cetakSBG(
   .ttd .role { margin-bottom:50px; color:#334155; }
   .ttd .sign { border-top:1px solid #0b1a3a; padding-top:3px; font-weight:600; }
   .note { font-size:9px; color:#64748b; margin-top:16px; text-align:center; }
+  .promo { background:#ecfdf5; border:1.5px solid #10b981; color:#065f46; border-radius:8px; padding:7px 10px; text-align:center; font-weight:700; margin:10px 0 4px; }
+  .promo small { display:block; font-weight:500; color:#047857; font-size:10px; margin-top:2px; }
 </style></head><body>
   <div class="head">
     <div>
@@ -67,6 +70,8 @@ export function cetakSBG(
     </div>
     <div class="doc"><div class="t">SURAT BUKTI GADAI</div><div class="tnum">${esc(g.no_sbg)}</div></div>
   </div>
+
+  ${g.promo_nama ? `<div class="promo">&#127881; PROMO: ${esc(g.promo_nama)}${g.promo_diskon ? ` &mdash; Diskon Bunga ${Number(g.promo_diskon)}%` : ""}<small>Selamat! Anda mendapat bunga spesial ${esc(g.bunga_persen)}% per ${esc(g.periode_hari)} hari</small></div>` : ""}
 
   <div class="grid" style="margin-top:8px">
     <div class="row"><span class="k">Nama</span><span class="v">${esc(g.nasabah_nama)}</span></div>
