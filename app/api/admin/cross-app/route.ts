@@ -70,8 +70,9 @@ export async function POST(req: NextRequest) {
         }
 
         // Sudah ada toko → tambahkan user ke toko itu dengan peran yang dipilih.
-        const tenantId = data.tenant_id ? Number(data.tenant_id) : (tenants.length === 1 ? tenants[0].id : null);
-        if (!tenantId) return NextResponse.json({ error: "Beberapa toko ada — sertakan tenant_id" }, { status: 400 });
+        const tid = data.tenant_id ?? data.tenantId;
+        const tenantId = tid ? Number(tid) : (tenants.length === 1 ? tenants[0].id : null);
+        if (!tenantId) return NextResponse.json({ error: "Beberapa toko ada — pilih toko dulu" }, { status: 400 });
 
         const staff = await dbOne<any>(
           `INSERT INTO users (tenant_id, email, password_hash, nama, role) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
