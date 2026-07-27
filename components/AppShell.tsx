@@ -12,6 +12,7 @@ const NAV: { href: string; label: string; short: string; icon: string; show: (c:
   { href: "/nasabah", label: "Nasabah", short: "Nasabah", icon: "bi-people", show: canOperateOf },
   { href: "/gadai/baru", label: "Gadai Baru", short: "Gadai", icon: "bi-plus-square", show: canOperateOf },
   { href: "/transaksi", label: "Transaksi", short: "Transaksi", icon: "bi-list-check", show: canOperateOf },
+  { href: "/jatuh-tempo", label: "Jatuh Tempo", short: "Tempo", icon: "bi-alarm", show: canOperateOf },
   { href: "/kas", label: "Buku Kas", short: "Kas", icon: "bi-wallet2", show: canOperateOf },
   { href: "/laporan", label: "Laporan", short: "Laporan", icon: "bi-bar-chart", show: canOperateOf },
   { href: "/gudang", label: "Gudang Jaminan", short: "Gudang", icon: "bi-box-seam", show: canOperateOf },
