@@ -12,6 +12,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (s.access !== "admin") return NextResponse.json({ error: "Hanya admin/pemilik yang boleh melelang" }, { status: 403 });
   const b = await req.json().catch(() => ({}));
   const harga = Math.max(0, Math.round(Number(b.harga_lelang || 0)));
+  const metode = b.metode === "transfer" ? "transfer" : "tunai";
+  const kembalikanKelebihan = b.kembalikan_kelebihan !== false; // default true
 
   const g = await dbOne<any>(`SELECT * FROM gadai WHERE id = $1 AND tenant_id = $2`, [params.id, s.tenant_id]);
   if (!g) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
@@ -39,5 +41,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Barang keluar gudang: ditandai dilelang.
   await dbRun(`UPDATE barang SET status_fisik='dilelang' WHERE gadai_id=$1 AND status_fisik='disimpan'`, [g.id]);
 
-  return NextResponse.json({ ok: true, harga, kewajiban, selisih: harga - kewajiban });
+  // Buku kas: hasil jual lelang = uang masuk.
+  if (harga > 0) {
+    await dbRun(
+      `INSERT INTO kas (tenant_id, tgl, arah, kategori, metode, jumlah, keterangan, ref_gadai_id, created_by)
+       VALUES ($1,$2,'masuk','lelang',$3,$4,$5,$6,$7)`,
+      [s.tenant_id, today, metode, harga, `Hasil lelang ${g.no_sbg}`, g.id, s.user_id]
+    );
+  }
+  // Kelebihan (harga jual > kewajiban) dikembalikan ke nasabah = uang keluar (opsional).
+  const kelebihan = harga - kewajiban;
+  if (kembalikanKelebihan && kelebihan > 0) {
+    await dbRun(
+      `INSERT INTO kas (tenant_id, tgl, arah, kategori, metode, jumlah, keterangan, ref_gadai_id, created_by)
+       VALUES ($1,$2,'keluar','lelang',$3,$4,$5,$6,$7)`,
+      [s.tenant_id, today, metode, kelebihan, `Kelebihan lelang ${g.no_sbg} ke nasabah`, g.id, s.user_id]
+    );
+  }
+
+  return NextResponse.json({ ok: true, harga, kewajiban, selisih: kelebihan });
 }

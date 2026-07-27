@@ -19,6 +19,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   const [lastPay, setLastPay] = useState<any>(null);
   const [lokEdit, setLokEdit] = useState<{ id: number; nama: string; val: string } | null>(null);
   const [metodeBayar, setMetodeBayar] = useState("tunai");
+  const [kembalikanKelebihan, setKembalikanKelebihan] = useState(true);
 
   async function simpanLokasi() {
     if (!lokEdit) return;
@@ -55,7 +56,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
     if (aksi === "lelang") {
       r = await fetch(`/api/gadai/${id}/lelang`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ harga_lelang: Number(hargaLelang || 0) }),
+        body: JSON.stringify({ harga_lelang: Number(hargaLelang || 0), metode: metodeBayar, kembalikan_kelebihan: kembalikanKelebihan }),
       });
     } else {
       const body: any = { jenis: aksi, metode: metodeBayar };
@@ -299,19 +300,23 @@ export default function DetailPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {aksi !== "lelang" && (
-              <div className="mb-4">
-                <label className="label">Metode pembayaran</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["tunai", "transfer"] as const).map((m) => (
-                    <button key={m} onClick={() => setMetodeBayar(m)}
-                      className={`py-2 rounded-xl text-sm font-semibold border capitalize ${metodeBayar === m ? "bg-navy-800 text-white border-navy-800" : "bg-white text-navy-700 border-slate-200"}`}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
+            <div className="mb-4">
+              <label className="label">{aksi === "lelang" ? "Terima hasil jual via" : "Metode pembayaran"}</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["tunai", "transfer"] as const).map((m) => (
+                  <button key={m} onClick={() => setMetodeBayar(m)}
+                    className={`py-2 rounded-xl text-sm font-semibold border capitalize ${metodeBayar === m ? "bg-navy-800 text-white border-navy-800" : "bg-white text-navy-700 border-slate-200"}`}>
+                    {m}
+                  </button>
+                ))}
               </div>
-            )}
+              {aksi === "lelang" && previewSelisih > 0 && (
+                <label className="flex items-start gap-2 mt-2 text-xs text-slate-600 cursor-pointer">
+                  <input type="checkbox" className="accent-navy-700 mt-0.5" checked={kembalikanKelebihan} onChange={(e) => setKembalikanKelebihan(e.target.checked)} />
+                  <span>Kelebihan <b>{rupiah(previewSelisih)}</b> langsung dikembalikan ke nasabah (catat kas keluar). Hilangkan centang jika dibayar nanti.</span>
+                </label>
+              )}
+            </div>
 
             <div className="flex gap-2 justify-end">
               <button className="btn-ghost" onClick={() => setAksi(null)} disabled={proc}>Batal</button>
