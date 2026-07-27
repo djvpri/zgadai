@@ -20,6 +20,7 @@ const NAV: { href: string; label: string; short: string; icon: string; show: (c:
   { href: "/investor", label: "Investor", short: "Return", icon: "bi-graph-up-arrow", show: (c) => isAdminOf(c) || c.is_investor },
   { href: "/staf", label: "Kelola Staf", short: "Staf", icon: "bi-person-badge", show: isAdminOf },
   { href: "/aktivitas", label: "Riwayat Aktivitas", short: "Log", icon: "bi-clock-history", show: isAdminOf },
+  { href: "/ekspor", label: "Backup / Ekspor", short: "Backup", icon: "bi-download", show: isAdminOf },
   { href: "/pengaturan", label: "Pengaturan", short: "Atur", icon: "bi-gear", show: isAdminOf },
 ];
 const CORE = ["/dashboard", "/nasabah", "/gadai/baru", "/transaksi", "/laporan"];
