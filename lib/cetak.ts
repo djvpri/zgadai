@@ -302,6 +302,54 @@ export function cetakLabel(items: LabelBarang[], shop: { nama: string }) {
   printViaIframe(html);
 }
 
+// ---- Cetak Laba-Rugi bulanan (A4) ----
+export function cetakLabaRugi(d: any, bulanLabel: string, usaha: string) {
+  const line = (k: string, v: number, indent = true) =>
+    `<div class="row"${indent ? ` style="padding-left:14px"` : ""}><span>${esc(k)}</span><span class="tnum">${rupiah(v)}</span></div>`;
+  const sub = (k: string, v: number) =>
+    `<div class="row s"><span>${esc(k)}</span><span class="tnum">${rupiah(v)}</span></div>`;
+
+  const html = `<!doctype html><html lang="id"><head><meta charset="utf-8">
+<title>Laba Rugi ${esc(bulanLabel)}</title>
+<style>
+  @page { size: A4; margin: 18mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color:#0b1a3a; font-size:13px; margin:0; }
+  .head { text-align:center; border-bottom:2px solid #0b1a3a; padding-bottom:10px; margin-bottom:16px; }
+  .brand { font-size:18px; font-weight:800; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:#334155; margin:16px 0 4px; border-bottom:1px solid #e2e8f0; padding-bottom:3px; }
+  .row { display:flex; justify-content:space-between; padding:3px 0; }
+  .row.s { font-weight:700; border-top:1px solid #cbd5e1; margin-top:3px; padding-top:5px; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .final { display:flex; justify-content:space-between; font-size:16px; font-weight:800; margin-top:16px; border-top:2px solid #0b1a3a; padding-top:10px; }
+  .muted { color:#64748b; font-size:11px; }
+</style></head><body>
+  <div class="head">
+    <div class="brand">${esc(usaha)}</div>
+    <div>Laporan Laba Rugi</div>
+    <div class="muted">Periode: ${esc(bulanLabel)}</div>
+  </div>
+
+  <h2>Pendapatan</h2>
+  ${line("Bunga (sewa modal)", d.pendapatan.bunga)}
+  ${line("Denda keterlambatan", d.pendapatan.denda)}
+  ${line("Biaya administrasi", d.pendapatan.admin)}
+  ${line("Laba lelang", d.pendapatan.lelang_untung)}
+  ${sub("Total Pendapatan", d.total_pendapatan)}
+
+  <h2>Beban</h2>
+  ${line("Beban operasional", d.beban.operasional)}
+  ${line("Fee mitra", d.beban.fee_mitra)}
+  ${line("Rugi lelang", d.beban.lelang_rugi)}
+  ${sub("Total Beban", d.total_beban)}
+
+  <div class="final"><span>LABA BERSIH</span><span class="tnum">${rupiah(d.laba_bersih)}</span></div>
+  <div class="muted" style="margin-top:20px">Dicetak ${tanggalID(new Date().toISOString().slice(0,10))}. Basis realisasi kas. Bagi hasil investor & pengambilan modal (prive) tidak termasuk beban.</div>
+</body></html>`;
+
+  printViaIframe(html);
+}
+
 function printViaIframe(html: string) {
   const iframe = document.createElement("iframe");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";

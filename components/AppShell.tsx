@@ -15,6 +15,7 @@ const NAV: { href: string; label: string; short: string; icon: string; show: (c:
   { href: "/jatuh-tempo", label: "Jatuh Tempo", short: "Tempo", icon: "bi-alarm", show: canOperateOf },
   { href: "/kas", label: "Buku Kas", short: "Kas", icon: "bi-wallet2", show: canOperateOf },
   { href: "/laporan", label: "Laporan", short: "Laporan", icon: "bi-bar-chart", show: canOperateOf },
+  { href: "/laba-rugi", label: "Laba Rugi", short: "L/R", icon: "bi-graph-up", show: isAdminOf },
   { href: "/gudang", label: "Gudang Jaminan", short: "Gudang", icon: "bi-box-seam", show: canOperateOf },
   { href: "/mitra", label: "Fee Mitra", short: "Fee", icon: "bi-percent", show: (c) => isAdminOf(c) || c.is_mitra },
   { href: "/investor", label: "Investor", short: "Return", icon: "bi-graph-up-arrow", show: (c) => isAdminOf(c) || c.is_investor },

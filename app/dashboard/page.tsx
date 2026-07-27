@@ -12,17 +12,19 @@ interface JT {
   id: number; no_sbg: string; tgl_jatuh_tempo: string; pokok_sisa: number;
   nasabah_nama: string; nasabah_hp: string | null; sisa_hari: number;
 }
+interface Kas { tunai: number; transfer: number; total: number }
 
 export default function DashboardPage() {
   const [stat, setStat] = useState<Stat | null>(null);
   const [jt, setJt] = useState<JT[]>([]);
+  const [kas, setKas] = useState<Kas | null>(null);
   const [usaha, setUsaha] = useState("");
   const [access, setAccess] = useState("");
   const canOperate = access === "admin" || access === "marketing";
 
   useEffect(() => {
     fetch("/api/dashboard").then((r) => r.json()).then((d) => {
-      if (d.stat) { setStat(d.stat); setJt(d.jatuhTempo || []); setUsaha(d.usaha || ""); setAccess(d.access || ""); }
+      if (d.stat) { setStat(d.stat); setJt(d.jatuhTempo || []); setKas(d.kas || null); setUsaha(d.usaha || ""); setAccess(d.access || ""); }
     });
   }, []);
 
@@ -50,6 +52,35 @@ export default function DashboardPage() {
         </div>
         {canOperate && <Link href="/gadai/baru" className="btn-gold"><i className="bi bi-plus-lg" /> Gadai Baru</Link>}
       </div>
+
+      {/* Peringatan jatuh tempo */}
+      {stat && (stat.lewat_tempo > 0 || stat.jt_dekat > 0) && (
+        <Link href="/jatuh-tempo" className="card p-4 mb-4 flex items-center gap-3 hover:bg-slate-50 border border-amber-200 bg-amber-50/40">
+          <i className="bi bi-alarm-fill text-amber-500 text-xl" />
+          <div className="flex-1 text-sm text-navy-800">
+            {stat.lewat_tempo > 0 && <span><b>{stat.lewat_tempo}</b> gadai lewat tempo</span>}
+            {stat.lewat_tempo > 0 && stat.jt_dekat > 0 && <span> · </span>}
+            {stat.jt_dekat > 0 && <span><b>{stat.jt_dekat}</b> jatuh tempo ≤7 hari</span>}
+            <span className="text-slate-500"> — perlu diingatkan.</span>
+          </div>
+          <i className="bi bi-chevron-right text-slate-300" />
+        </Link>
+      )}
+
+      {/* Ringkasan kas */}
+      {kas && (
+        <Link href="/kas" className="card p-4 mb-6 hover:bg-slate-50 block">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-slate-500"><i className="bi bi-wallet2 me-1" />Saldo Kas</span>
+            <span className="text-xs text-navy-600">Buku Kas <i className="bi bi-chevron-right" /></span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div><div className={`text-lg font-bold tnum ${kas.tunai < 0 ? "text-red-600" : "text-navy-900"}`}>{rupiah(kas.tunai)}</div><div className="text-[11px] text-slate-500">Tunai</div></div>
+            <div><div className={`text-lg font-bold tnum ${kas.transfer < 0 ? "text-red-600" : "text-navy-900"}`}>{rupiah(kas.transfer)}</div><div className="text-[11px] text-slate-500">Bank/Transfer</div></div>
+            <div><div className="text-lg font-bold tnum text-emerald-700">{rupiah(kas.total)}</div><div className="text-[11px] text-slate-500">Total</div></div>
+          </div>
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {cards.map((c) => (

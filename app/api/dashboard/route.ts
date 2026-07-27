@@ -39,6 +39,20 @@ export async function GET() {
 
   const setRow = await dbOne<any>(`SELECT settings FROM tenants WHERE id = $1`, [t]);
 
+  // Saldo kas per metode (kumulatif).
+  const kasRows = await dbAll<any>(
+    `SELECT metode,
+            COALESCE(SUM(jumlah) FILTER (WHERE arah='masuk'),0)::bigint AS masuk,
+            COALESCE(SUM(jumlah) FILTER (WHERE arah='keluar'),0)::bigint AS keluar
+       FROM kas WHERE tenant_id = $1 GROUP BY metode`,
+    [t]
+  );
+  let kasTunai = 0, kasTransfer = 0;
+  for (const r of kasRows) {
+    const net = Number(r.masuk) - Number(r.keluar);
+    if (r.metode === "transfer") kasTransfer += net; else kasTunai += net;
+  }
+
   return NextResponse.json({
     usaha: s.nama_usaha,
     access: s.access,
@@ -51,6 +65,7 @@ export async function GET() {
       bunga_bulan: Number(bunga?.bunga_bulan || 0),
       nasabah: nasabah?.jumlah || 0,
     },
+    kas: { tunai: kasTunai, transfer: kasTransfer, total: kasTunai + kasTransfer },
     jatuhTempo,
   });
 }
