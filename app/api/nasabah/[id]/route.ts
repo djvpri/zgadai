@@ -19,7 +19,26 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     [params.id, s.tenant_id]
   );
 
-  return NextResponse.json({ nasabah, gadai });
+  // Kapabilitas: apakah email nasabah ini juga punya baris users (mitra/investor)?
+  const email = (nasabah.email || "").toLowerCase();
+  const u = email
+    ? await dbOne<any>(
+        `SELECT id, access, is_mitra, is_investor, fee_persen, modal, bagi_hasil_persen
+           FROM users WHERE lower(email) = $1 LIMIT 1`,
+        [email]
+      )
+    : null;
+  const kapabilitas = {
+    has_email: !!email,
+    is_mitra: !!u?.is_mitra,
+    is_investor: !!u?.is_investor,
+    fee_persen: Number(u?.fee_persen || 0),
+    modal: Number(u?.modal || 0),
+    bagi_hasil_persen: Number(u?.bagi_hasil_persen || 0),
+    access: u?.access || null, // null = belum jadi user
+  };
+
+  return NextResponse.json({ nasabah, gadai, kapabilitas, admin: s.access === "admin" });
 }
 
 // PATCH /api/nasabah/[id] -> update data nasabah

@@ -11,6 +11,10 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
   const [edit, setEdit] = useState(false);
   const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", email: "" });
   const [saving, setSaving] = useState(false);
+  const [kap, setKap] = useState(false);
+  const [kapForm, setKapForm] = useState({ is_mitra: false, fee_persen: "", is_investor: false, modal: "", bagi_hasil_persen: "" });
+  const [savingKap, setSavingKap] = useState(false);
+  const [kapMsg, setKapMsg] = useState("");
 
   const load = useCallback(() => {
     fetch(`/api/nasabah/${id}`).then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -32,11 +36,36 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
     if (r.ok) { setEdit(false); load(); }
   }
 
+  function openKap() {
+    const k = data.kapabilitas || {};
+    setKapForm({
+      is_mitra: !!k.is_mitra, fee_persen: String(k.fee_persen || ""),
+      is_investor: !!k.is_investor, modal: String(k.modal || ""), bagi_hasil_persen: String(k.bagi_hasil_persen || ""),
+    });
+    setKapMsg("");
+    setKap(true);
+  }
+  async function simpanKap() {
+    setSavingKap(true); setKapMsg("");
+    const r = await fetch(`/api/nasabah/${id}/kapabilitas`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        is_mitra: kapForm.is_mitra, fee_persen: Number(kapForm.fee_persen) || 0,
+        is_investor: kapForm.is_investor, modal: Number(kapForm.modal) || 0, bagi_hasil_persen: Number(kapForm.bagi_hasil_persen) || 0,
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    setSavingKap(false);
+    if (r.ok) { setKap(false); load(); }
+    else setKapMsg(d.error || "Gagal menyimpan");
+  }
+
   if (loading) return <AppShell><div className="p-8 text-center text-slate-400">Memuat…</div></AppShell>;
   if (!data?.nasabah) return <AppShell><div className="p-8 text-center text-slate-400">Nasabah tidak ditemukan.</div></AppShell>;
 
   const n = data.nasabah;
   const gadai = data.gadai || [];
+  const kapt = data.kapabilitas || {};
   const aktif = gadai.filter((g: any) => g.status === "aktif");
   const uangBeredar = aktif.reduce((s: number, g: any) => s + Number(g.pokok_sisa || 0), 0);
 
@@ -75,6 +104,26 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
               <div className="text-[11px] text-slate-500">Uang Beredar</div>
             </div>
           </div>
+
+          {/* Kapabilitas (admin) — jadikan nasabah ini Mitra/Investor */}
+          {data.admin && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Peran di Usaha</span>
+                <button className="text-xs font-semibold text-navy-600 hover:underline" onClick={openKap}>
+                  <i className="bi bi-sliders me-1" />Atur
+                </button>
+              </div>
+              {kapt.is_mitra || kapt.is_investor ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {kapt.is_mitra && <span className="badge bg-amber-50 text-amber-700 border border-amber-200"><i className="bi bi-percent" />Mitra {kapt.fee_persen}%</span>}
+                  {kapt.is_investor && <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200"><i className="bi bi-graph-up-arrow" />Investor {kapt.bagi_hasil_persen}%</span>}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">Hanya nasabah. Klik <b>Atur</b> untuk jadikan Mitra/Investor.</p>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Riwayat gadai */}
@@ -110,6 +159,67 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
           )}
         </section>
       </div>
+
+      {/* Kapabilitas modal */}
+      {kap && (
+        <div className="fixed inset-0 z-50 bg-navy-950/40 grid place-items-center p-4" onClick={() => setKap(false)}>
+          <div className="card p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div>
+              <h2 className="text-lg font-bold text-navy-900">Peran {n.nama}</h2>
+              <p className="text-xs text-slate-500">Satu orang bisa jadi nasabah, mitra, dan investor sekaligus. Ia login lewat email <b>{n.email || "—"}</b> dan melihat portal pribadi <b>/saya</b>.</p>
+            </div>
+
+            {!kapt.has_email && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                <i className="bi bi-exclamation-triangle me-1" />Nasabah belum punya email. Isi email dulu lewat <b>Edit</b> agar bisa dijadikan mitra/investor.
+              </p>
+            )}
+
+            {/* Mitra */}
+            <div className="rounded-xl border border-slate-200 p-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="accent-navy-700" checked={kapForm.is_mitra}
+                  onChange={(e) => setKapForm({ ...kapForm, is_mitra: e.target.checked })} disabled={!kapt.has_email} />
+                <span className="text-sm font-semibold text-navy-900">Mitra</span>
+                <span className="text-xs text-slate-400">— fee % dari bunga gadai yang ia bawa</span>
+              </label>
+              {kapForm.is_mitra && (
+                <div className="mt-2">
+                  <label className="label">Fee % (dari bunga)</label>
+                  <input className="input tnum max-w-[140px]" inputMode="decimal" value={kapForm.fee_persen}
+                    onChange={(e) => setKapForm({ ...kapForm, fee_persen: e.target.value.replace(/[^\d.]/g, "") })} />
+                </div>
+              )}
+            </div>
+
+            {/* Investor */}
+            <div className="rounded-xl border border-slate-200 p-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="accent-navy-700" checked={kapForm.is_investor}
+                  onChange={(e) => setKapForm({ ...kapForm, is_investor: e.target.checked })} disabled={!kapt.has_email} />
+                <span className="text-sm font-semibold text-navy-900">Investor</span>
+                <span className="text-xs text-slate-400">— modal & bagi hasil dari laba</span>
+              </label>
+              {kapForm.is_investor && (
+                <div className="mt-2 flex flex-wrap items-end gap-3">
+                  <div><label className="label">Modal (Rp)</label>
+                    <input className="input tnum max-w-[160px]" inputMode="numeric" value={kapForm.modal}
+                      onChange={(e) => setKapForm({ ...kapForm, modal: e.target.value.replace(/\D/g, "") })} /></div>
+                  <div><label className="label">Bagi hasil % (laba)</label>
+                    <input className="input tnum max-w-[120px]" inputMode="decimal" value={kapForm.bagi_hasil_persen}
+                      onChange={(e) => setKapForm({ ...kapForm, bagi_hasil_persen: e.target.value.replace(/[^\d.]/g, "") })} /></div>
+                </div>
+              )}
+            </div>
+
+            {kapMsg && <p className="text-sm text-red-600">{kapMsg}</p>}
+            <div className="flex gap-2 justify-end">
+              <button className="btn-ghost" onClick={() => setKap(false)}>Batal</button>
+              <button className="btn-primary" onClick={simpanKap} disabled={savingKap || !kapt.has_email}>{savingKap ? "Menyimpan…" : "Simpan"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit modal */}
       {edit && (
