@@ -35,9 +35,10 @@ export async function POST(req: NextRequest) {
 
   const email = b.email ? String(b.email).trim().toLowerCase() : null;
   const row = await dbOne(
-    `INSERT INTO nasabah (tenant_id, nama, no_ktp, no_hp, alamat, catatan, foto, email)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-    [s.tenant_id, nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, foto, email]
+    `INSERT INTO nasabah (tenant_id, nama, no_ktp, no_hp, alamat, catatan, foto, email, bank_nama, no_rekening, rekening_atas_nama)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    [s.tenant_id, nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, foto, email,
+     b.bank_nama || null, b.no_rekening || null, b.rekening_atas_nama || null]
   );
   return NextResponse.json({ nasabah: row });
 }

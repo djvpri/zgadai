@@ -51,7 +51,7 @@ export default function NasabahPage() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", foto: "", email: "" });
+  const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", foto: "", email: "", bank_nama: "", no_rekening: "", rekening_atas_nama: "" });
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState("");
@@ -157,7 +157,7 @@ export default function NasabahPage() {
     setSaving(false);
     if (r.ok) {
       setShowForm(false);
-      setForm({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", foto: "", email: "" });
+      setForm({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", foto: "", email: "", bank_nama: "", no_rekening: "", rekening_atas_nama: "" });
       setScanMsg("");
       load();
     } else {
@@ -289,6 +289,23 @@ export default function NasabahPage() {
             <div>
               <label className="label">Email <span className="font-normal text-slate-400">(agar nasabah bisa cek pinjaman via Z One)</span></label>
               <input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@nasabah.com" />
+            </div>
+            <div className="pt-1 border-t border-slate-100">
+              <div className="label mb-1"><i className="bi bi-bank me-1" />Rekening Bank <span className="font-normal text-slate-400">(opsional — untuk transfer)</span></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Bank</label>
+                  <input className="input" placeholder="mis. BCA" value={form.bank_nama} onChange={(e) => setForm({ ...form, bank_nama: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">No. Rekening</label>
+                  <input className="input tnum" inputMode="numeric" value={form.no_rekening} onChange={(e) => setForm({ ...form, no_rekening: e.target.value.replace(/[^\d]/g, "") })} />
+                </div>
+              </div>
+              <div className="mt-3">
+                <label className="label">Atas Nama <span className="font-normal text-slate-400">(kosongkan jika sama)</span></label>
+                <input className="input" value={form.rekening_atas_nama} onChange={(e) => setForm({ ...form, rekening_atas_nama: e.target.value })} />
+              </div>
             </div>
             {err && <p className="text-sm text-red-600">{err}</p>}
             <div className="flex gap-2 justify-end">

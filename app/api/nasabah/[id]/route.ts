@@ -55,9 +55,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const email = b.email ? String(b.email).trim().toLowerCase() : null;
   await dbOne(
-    `UPDATE nasabah SET nama=$1, no_ktp=$2, no_hp=$3, alamat=$4, catatan=$5, email=$6, updated_at=now()
-     WHERE id=$7 RETURNING id`,
-    [nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, email, params.id]
+    `UPDATE nasabah SET nama=$1, no_ktp=$2, no_hp=$3, alamat=$4, catatan=$5, email=$6,
+            bank_nama=$7, no_rekening=$8, rekening_atas_nama=$9, updated_at=now()
+     WHERE id=$10 RETURNING id`,
+    [nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, email,
+     b.bank_nama || null, b.no_rekening || null, b.rekening_atas_nama || null, params.id]
   );
   return NextResponse.json({ ok: true });
 }

@@ -225,6 +225,17 @@ export default function DetailPage({ params }: { params: { id: string } }) {
                     <><span className="font-semibold text-red-600">Kekurangan</span><span className="font-bold text-red-600 tnum">{rupiah(-selisihLelang)}</span></>
                   )}
                 </div>
+                {selisihLelang > 0 && (
+                  g.nasabah_rekening ? (
+                    <div className="mt-2 pt-2 border-t border-navy-200 text-xs">
+                      <span className="text-slate-500">Transfer ke: </span>
+                      <span className="font-semibold text-navy-900 tnum">{g.nasabah_bank || "Bank"} {g.nasabah_rekening}</span>
+                      <span className="text-slate-500"> a.n. {g.nasabah_rek_an || g.nasabah_nama}</span>
+                    </div>
+                  ) : (
+                    <p className="mt-2 pt-2 border-t border-navy-200 text-[11px] text-amber-600"><i className="bi bi-info-circle me-1" />Rekening nasabah belum diisi — lengkapi di data nasabah untuk transfer kelebihan.</p>
+                  )
+                )}
               </div>
             )}
           </section>

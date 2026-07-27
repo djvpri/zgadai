@@ -9,7 +9,8 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState(false);
-  const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", email: "" });
+  const [form, setForm] = useState({ nama: "", no_ktp: "", no_hp: "", alamat: "", catatan: "", email: "", bank_nama: "", no_rekening: "", rekening_atas_nama: "" });
+  const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [kap, setKap] = useState(false);
   const [kapForm, setKapForm] = useState({ is_mitra: false, fee_persen: "", is_investor: false, modal: "", bagi_hasil_persen: "" });
@@ -24,7 +25,8 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
 
   function openEdit() {
     const n = data.nasabah;
-    setForm({ nama: n.nama || "", no_ktp: n.no_ktp || "", no_hp: n.no_hp || "", alamat: n.alamat || "", catatan: n.catatan || "", email: n.email || "" });
+    setForm({ nama: n.nama || "", no_ktp: n.no_ktp || "", no_hp: n.no_hp || "", alamat: n.alamat || "", catatan: n.catatan || "", email: n.email || "",
+      bank_nama: n.bank_nama || "", no_rekening: n.no_rekening || "", rekening_atas_nama: n.rekening_atas_nama || "" });
     setEdit(true);
   }
   async function simpan() {
@@ -58,6 +60,10 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
     setSavingKap(false);
     if (r.ok) { setKap(false); load(); }
     else setKapMsg(d.error || "Gagal menyimpan");
+  }
+
+  async function salinRek() {
+    try { await navigator.clipboard.writeText(String(n.no_rekening || "")); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
   }
 
   if (loading) return <AppShell><div className="p-8 text-center text-slate-400">Memuat…</div></AppShell>;
@@ -94,6 +100,28 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
             {n.catatan && <Info k="Catatan" v={n.catatan} />}
             <Info k="Terdaftar" v={tanggalID(n.created_at)} />
           </div>
+
+          {/* Rekening bank — untuk transfer pencairan / kelebihan lelang */}
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1"><i className="bi bi-bank me-1" />Rekening Bank</div>
+            {n.no_rekening ? (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-bold text-navy-900 tnum truncate">{n.no_rekening}</div>
+                    <div className="text-xs text-slate-500 truncate">{n.bank_nama || "—"} · a.n. {n.rekening_atas_nama || n.nama}</div>
+                  </div>
+                  <button onClick={salinRek} title="Salin nomor rekening"
+                    className="shrink-0 text-xs font-semibold text-navy-600 hover:bg-navy-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                    <i className={`bi ${copied ? "bi-check2" : "bi-clipboard"} me-1`} />{copied ? "Tersalin" : "Salin"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-slate-400">Belum ada. Klik <b>Edit</b> untuk menambahkan.</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3 mt-4">
             <div className="bg-navy-50 rounded-xl p-3 text-center">
               <div className="text-xl font-bold text-navy-900">{aktif.length}</div>
@@ -234,6 +262,14 @@ export default function NasabahDetailPage({ params }: { params: { id: string } }
             <div><label className="label">Email <span className="font-normal text-slate-400">(untuk cek pinjaman via Z One)</span></label><input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
             <div><label className="label">Alamat</label><input className="input" value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} /></div>
             <div><label className="label">Catatan</label><input className="input" value={form.catatan} onChange={(e) => setForm({ ...form, catatan: e.target.value })} /></div>
+            <div className="pt-1 border-t border-slate-100">
+              <div className="label mb-1"><i className="bi bi-bank me-1" />Rekening Bank <span className="font-normal text-slate-400">(untuk transfer pencairan / kelebihan lelang)</span></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="label">Bank</label><input className="input" placeholder="mis. BCA" value={form.bank_nama} onChange={(e) => setForm({ ...form, bank_nama: e.target.value })} /></div>
+                <div><label className="label">No. Rekening</label><input className="input tnum" inputMode="numeric" value={form.no_rekening} onChange={(e) => setForm({ ...form, no_rekening: e.target.value.replace(/[^\d]/g, "") })} /></div>
+              </div>
+              <div className="mt-3"><label className="label">Atas Nama <span className="font-normal text-slate-400">(kosongkan jika sama dengan nama nasabah)</span></label><input className="input" value={form.rekening_atas_nama} onChange={(e) => setForm({ ...form, rekening_atas_nama: e.target.value })} /></div>
+            </div>
             <div className="flex gap-2 justify-end">
               <button className="btn-ghost" onClick={() => setEdit(false)}>Batal</button>
               <button className="btn-primary" onClick={simpan} disabled={saving || !form.nama.trim()}>{saving ? "Menyimpan…" : "Simpan"}</button>

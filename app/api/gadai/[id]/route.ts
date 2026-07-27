@@ -10,6 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const gadai = await dbOne<any>(
     `SELECT g.*, n.nama AS nasabah_nama, n.no_hp AS nasabah_hp, n.no_ktp AS nasabah_ktp, n.alamat AS nasabah_alamat,
+            n.bank_nama AS nasabah_bank, n.no_rekening AS nasabah_rekening, n.rekening_atas_nama AS nasabah_rek_an,
             u.nama AS petugas
        FROM gadai g
        JOIN nasabah n ON n.id = g.nasabah_id
