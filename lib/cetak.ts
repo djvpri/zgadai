@@ -1,4 +1,4 @@
-// lib/cetak.ts — cetak Surat Bukti Gadai (SBG) via iframe tersembunyi (tanpa dependency).
+// lib/cetak.ts — cetak & kirim via WhatsApp (SBG, nota, label, laba-rugi, laporan)
 import { rupiah, tanggalID, waLink } from "./gadai";
 
 function esc(s: unknown): string {
@@ -13,12 +13,77 @@ interface SBGGadai {
   promo_nama?: string | null; promo_diskon?: number | string | null;
 }
 
-export async function cetakSBG(
-  g: SBGGadai,
-  barang: SBGBarang[],
+// ---- Konversi HTML → PDF Blob (pakai html2canvas + jspdf) ----
+async function htmlToPdfBlob(html: string, widthMm: number): Promise<Blob> {
+  const PX_PER_MM = 3.7795275591;
+  const widthPx = Math.round(widthMm * PX_PER_MM);
+
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${widthPx}px;height:1px;border:none;background:white;`;
+  document.body.appendChild(iframe);
+
+  try {
+    await new Promise<void>((resolve) => {
+      iframe.onload = () => resolve();
+      const doc = iframe.contentDocument!;
+      doc.open(); doc.write(html); doc.close();
+    });
+
+    // Tunggu gambar selesai load
+    const imgs = [...(iframe.contentDocument?.images ?? [])];
+    await Promise.all(imgs.map((img) =>
+      img.complete ? Promise.resolve() : new Promise<void>((r) => { img.onload = () => r(); img.onerror = () => r(); })
+    ));
+    await new Promise((r) => setTimeout(r, 400));
+
+    const body = iframe.contentDocument!.body;
+    const h = Math.max(body.scrollHeight, body.offsetHeight, 100);
+    iframe.style.height = `${h}px`;
+    await new Promise((r) => setTimeout(r, 80));
+
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+      import("html2canvas"),
+      import("jspdf"),
+    ]);
+
+    const canvas = await html2canvas(body, {
+      scale: 2, useCORS: true, allowTaint: true, backgroundColor: "#ffffff",
+      width: widthPx, height: h, windowWidth: widthPx, windowHeight: h,
+    });
+
+    const heightMm = h / PX_PER_MM;
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [widthMm, heightMm] });
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, widthMm, heightMm);
+    return pdf.output("blob");
+  } finally {
+    document.body.removeChild(iframe);
+  }
+}
+
+// ---- Share atau download PDF ----
+async function sharePdf(blob: Blob, filename: string, shareTitle: string, shareText: string) {
+  const file = new File([blob], filename, { type: "application/pdf" });
+  const shareData: ShareData = { files: [file], title: shareTitle, text: shareText };
+  if (typeof navigator !== "undefined" && navigator.canShare?.(shareData)) {
+    await navigator.share(shareData);
+  } else {
+    // Fallback: download file
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+}
+
+// ============================================================
+//  SBG
+// ============================================================
+
+async function buildSBGHtml(
+  g: SBGGadai, barang: SBGBarang[],
   shop: { nama: string; alamat?: string | null; wa?: string | null; petugas?: string | null },
   verifUrl?: string | null,
-) {
+): Promise<string> {
   let qrImg = "";
   if (verifUrl) {
     try {
@@ -41,12 +106,12 @@ export async function cetakSBG(
     </tr>`;
   }).join("");
 
-  const html = `<!doctype html><html lang="id"><head><meta charset="utf-8">
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8">
 <title>SBG ${esc(g.no_sbg)}</title>
 <style>
   @page { size: A5; margin: 12mm; }
   * { box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; color:#0b1a3a; font-size:11px; margin:0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color:#0b1a3a; font-size:11px; margin:0; padding:12mm; width:148mm; }
   .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #0b1a3a; padding-bottom:8px; }
   .brand { font-size:15px; font-weight:800; }
   .doc { text-align:right; }
@@ -116,23 +181,44 @@ export async function cetakSBG(
   </div>` : ""}
   <div class="note">Barang dapat ditebus/diperpanjang sebelum jatuh tempo. Lewat tempo dapat dilelang sesuai ketentuan.</div>
 </body></html>`;
+}
 
+export async function cetakSBG(
+  g: SBGGadai, barang: SBGBarang[],
+  shop: { nama: string; alamat?: string | null; wa?: string | null; petugas?: string | null },
+  verifUrl?: string | null,
+) {
+  const html = await buildSBGHtml(g, barang, shop, verifUrl);
   printViaIframe(html);
 }
 
-// ---- Cetak Nota pembayaran (thermal 80mm) ----
+/** Generate PDF SBG dan kirim via share sheet (mobile) atau download (desktop). */
+export async function kirimWASBG(
+  g: SBGGadai, barang: SBGBarang[],
+  shop: { nama: string; alamat?: string | null; wa?: string | null; petugas?: string | null },
+  verifUrl?: string | null,
+  phone?: string | null,
+) {
+  if (!phone) return;
+  const html = await buildSBGHtml(g, barang, shop, verifUrl);
+  const blob = await htmlToPdfBlob(html, 148);
+  await sharePdf(blob, `SBG-${g.no_sbg}.pdf`, `SBG ${g.no_sbg}`, `Surat Bukti Gadai dari ${shop.nama}`);
+  // Buka WA ke nasabah setelah file siap (fallback atau sebagai pemberitahuan)
+  if (!navigator.canShare?.({ files: [new File([], "x.pdf", { type: "application/pdf" })] })) {
+    const text = `${shop.nama} — SBG *${g.no_sbg}*\nFile PDF sudah terunduh. Silakan lampirkan ke chat ini.${verifUrl ? `\n\nVerifikasi: ${verifUrl}` : ""}`;
+    setTimeout(() => window.open(waLink(phone, text), "_blank", "noopener"), 800);
+  }
+}
+
+// ============================================================
+//  Nota pembayaran
+// ============================================================
+
 export interface NotaData {
-  no_sbg: string;
-  nasabah: string;
+  no_sbg: string; nasabah: string;
   jenis: "tebus" | "perpanjang" | "cicil";
-  tgl: string;
-  bunga: number;
-  denda: number;
-  pokok_dibayar: number;
-  total: number;
-  sisa_pokok: number;
-  jatuh_tempo_baru?: string | null;
-  lunas: boolean;
+  tgl: string; bunga: number; denda: number; pokok_dibayar: number;
+  total: number; sisa_pokok: number; jatuh_tempo_baru?: string | null; lunas: boolean;
 }
 
 const JENIS_NOTA: Record<string, string> = {
@@ -141,16 +227,16 @@ const JENIS_NOTA: Record<string, string> = {
   cicil: "Cicil Pokok",
 };
 
-export function cetakNota(n: NotaData, shop: { nama: string; alamat?: string | null; wa?: string | null }) {
+function buildNotaHtml(n: NotaData, shop: { nama: string; alamat?: string | null; wa?: string | null }): string {
   const line = (k: string, v: string, strong = false) =>
     `<div class="row${strong ? " s" : ""}"><span>${esc(k)}</span><span class="tnum">${v}</span></div>`;
 
-  const html = `<!doctype html><html lang="id"><head><meta charset="utf-8">
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8">
 <title>Nota ${esc(n.no_sbg)}</title>
 <style>
   @page { size: 80mm auto; margin: 4mm; }
   * { box-sizing: border-box; }
-  body { font-family: 'Consolas','Courier New',monospace; color:#000; font-size:12px; margin:0; width:72mm; }
+  body { font-family: 'Consolas','Courier New',monospace; color:#000; font-size:12px; margin:0; padding:4mm; width:72mm; }
   .c { text-align:center; }
   .b { font-weight:700; }
   .brand { font-size:15px; font-weight:700; }
@@ -185,11 +271,39 @@ export function cetakNota(n: NotaData, shop: { nama: string; alamat?: string | n
     : `${line("Sisa pokok", rupiah(n.sisa_pokok))}${n.jatuh_tempo_baru ? line("Jatuh tempo", tanggalID(n.jatuh_tempo_baru)) : ""}`}
   <div class="foot">Terima kasih.<br>Simpan nota ini sebagai bukti.</div>
 </body></html>`;
-
-  printViaIframe(html);
 }
 
-// ---- Cetak Brosur A5 (untuk marketing) ----
+export function cetakNota(n: NotaData, shop: { nama: string; alamat?: string | null; wa?: string | null }) {
+  printViaIframe(buildNotaHtml(n, shop));
+}
+
+/** Generate PDF nota dan kirim via share sheet (mobile) atau download (desktop). */
+export async function kirimWANota(
+  n: NotaData,
+  shop: { nama: string; alamat?: string | null; wa?: string | null },
+  phone?: string | null,
+) {
+  if (!phone) return;
+  const html = buildNotaHtml(n, shop);
+  const blob = await htmlToPdfBlob(html, 80);
+  await sharePdf(blob, `Nota-${n.no_sbg}-${n.jenis}.pdf`, `Nota ${n.no_sbg}`, `Bukti pembayaran dari ${shop.nama}`);
+  if (!navigator.canShare?.({ files: [new File([], "x.pdf", { type: "application/pdf" })] })) {
+    const lns = [
+      `${shop.nama} — Nota ${JENIS_NOTA[n.jenis] || n.jenis}`,
+      `No. SBG: *${n.no_sbg}*`,
+      `Total: *${rupiah(n.total)}*`,
+      n.lunas ? `✅ LUNAS — barang dapat diambil.` : `Sisa pokok: ${rupiah(n.sisa_pokok)}`,
+      ``,
+      `File PDF sudah terunduh. Silakan lampirkan ke chat ini.`,
+    ];
+    setTimeout(() => window.open(waLink(phone, lns.join("\n")), "_blank", "noopener"), 800);
+  }
+}
+
+// ============================================================
+//  Brosur A5
+// ============================================================
+
 export function cetakBrosur(d: {
   usaha: string; alamat?: string | null; wa?: string | null;
   sim: { bunga_persen: number; periode_hari: number; plafon_persen: number };
@@ -266,7 +380,10 @@ export function cetakBrosur(d: {
   printViaIframe(html);
 }
 
-// ---- Cetak Label Barang (stiker, ditempel di bungkus barang) ----
+// ============================================================
+//  Label Barang
+// ============================================================
+
 export interface LabelBarang {
   kode: string; no_sbg: string; nasabah: string; nama: string;
   lokasi?: string | null; tgl_jatuh_tempo?: string | null;
@@ -308,7 +425,10 @@ export function cetakLabel(items: LabelBarang[], shop: { nama: string }) {
   printViaIframe(html);
 }
 
-// ---- Cetak Laba-Rugi bulanan (A4) ----
+// ============================================================
+//  Laba-Rugi
+// ============================================================
+
 export function cetakLabaRugi(d: any, bulanLabel: string, usaha: string) {
   const line = (k: string, v: number, indent = true) =>
     `<div class="row"${indent ? ` style="padding-left:14px"` : ""}><span>${esc(k)}</span><span class="tnum">${rupiah(v)}</span></div>`;
@@ -356,75 +476,10 @@ export function cetakLabaRugi(d: any, bulanLabel: string, usaha: string) {
   printViaIframe(html);
 }
 
-/** Kirim ringkasan SBG via WhatsApp ke nasabah. */
-export function kirimWASBG(
-  g: SBGGadai,
-  shop: { nama: string },
-  verifUrl?: string | null,
-  phone?: string | null,
-) {
-  if (!phone) return;
-  const lines = [
-    `*Surat Bukti Gadai — ${shop.nama}*`,
-    ``,
-    `Halo ${g.nasabah_nama}, berikut ringkasan gadai Anda:`,
-    `• No. SBG: *${g.no_sbg}*`,
-    `• Pokok pinjaman: *${rupiah(g.pokok)}*`,
-    `• Bunga: ${g.bunga_persen}% / ${g.periode_hari} hari`,
-    `• Tgl gadai: ${tanggalID(g.tgl_gadai)}`,
-    `• Jatuh tempo: *${tanggalID(g.tgl_jatuh_tempo)}*`,
-  ];
-  if (verifUrl) {
-    lines.push(``, `Verifikasi keaslian SBG Anda:`, verifUrl);
-  }
-  lines.push(``, `Terima kasih telah mempercayakan barang kepada kami.`, `— ${shop.nama}`);
-  window.open(waLink(phone, lines.join("\n")), "_blank", "noopener");
-}
+// ============================================================
+//  Laporan
+// ============================================================
 
-/** Kirim bukti nota pembayaran via WhatsApp ke nasabah. */
-export function kirimWANota(
-  n: NotaData,
-  shop: { nama: string },
-  phone?: string | null,
-) {
-  if (!phone) return;
-  const lines = [
-    `*Bukti Pembayaran — ${shop.nama}*`,
-    ``,
-    `No. SBG: *${n.no_sbg}*`,
-    `Nasabah: ${n.nasabah}`,
-    `Jenis: ${JENIS_NOTA[n.jenis] || n.jenis}`,
-    `Tanggal: ${tanggalID(n.tgl)}`,
-    ``,
-    `Total bayar: *${rupiah(n.total)}*`,
-  ];
-  if (n.bunga > 0) lines.push(`  Bunga: ${rupiah(n.bunga)}`);
-  if (n.denda > 0) lines.push(`  Denda: ${rupiah(n.denda)}`);
-  if (n.pokok_dibayar > 0) lines.push(`  Pokok: ${rupiah(n.pokok_dibayar)}`);
-
-  if (n.lunas) {
-    lines.push(``, `✅ *LUNAS* — barang dapat diambil.`);
-  } else {
-    lines.push(``, `Sisa pokok: ${rupiah(n.sisa_pokok)}`);
-    if (n.jatuh_tempo_baru) lines.push(`Jatuh tempo baru: ${tanggalID(n.jatuh_tempo_baru)}`);
-  }
-  lines.push(``, `Terima kasih.`, `— ${shop.nama}`);
-  window.open(waLink(phone, lines.join("\n")), "_blank", "noopener");
-}
-
-function printViaIframe(html: string) {
-  const iframe = document.createElement("iframe");
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
-  document.body.appendChild(iframe);
-  const doc = iframe.contentWindow?.document;
-  if (!doc) { iframe.remove(); return; }
-  doc.open(); doc.write(html); doc.close();
-  const win = iframe.contentWindow!;
-  win.onafterprint = () => setTimeout(() => iframe.remove(), 300);
-  setTimeout(() => { win.focus(); win.print(); setTimeout(() => iframe.remove(), 1500); }, 350);
-}
-
-// ---- Cetak Laporan (A4) ----
 export function cetakLaporan(d: any, usaha: string) {
   const rowKV = (k: string, v: string, strong = false) =>
     `<div class="kv"><span>${esc(k)}</span><span class="${strong ? "s" : ""} tnum">${v}</span></div>`;
@@ -490,4 +545,20 @@ export function cetakLaporan(d: any, usaha: string) {
 </body></html>`;
 
   printViaIframe(html);
+}
+
+// ============================================================
+//  Shared
+// ============================================================
+
+function printViaIframe(html: string) {
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  document.body.appendChild(iframe);
+  const doc = iframe.contentWindow?.document;
+  if (!doc) { iframe.remove(); return; }
+  doc.open(); doc.write(html); doc.close();
+  const win = iframe.contentWindow!;
+  win.onafterprint = () => setTimeout(() => iframe.remove(), 300);
+  setTimeout(() => { win.focus(); win.print(); setTimeout(() => iframe.remove(), 1500); }, 350);
 }

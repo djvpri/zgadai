@@ -95,9 +95,16 @@ export default function DetailPage({ params }: { params: { id: string } }) {
     await cetakSBG(g, data.barang || [], { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa, petugas: g.petugas }, verifUrl);
   }
 
-  function doKirimWASBG() {
-    const verifUrl = g.verif_kode ? `${window.location.origin}/verifikasi/${g.verif_kode}` : null;
-    kirimWASBG(g, { nama: data.usaha || g.nasabah_nama }, verifUrl, g.nasabah_hp);
+  const [sendingWA, setSendingWA] = useState(false);
+
+  async function doKirimWASBG() {
+    setSendingWA(true);
+    try {
+      const verifUrl = g.verif_kode ? `${window.location.origin}/verifikasi/${g.verif_kode}` : null;
+      await kirimWASBG(g, data.barang || [], { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa, petugas: g.petugas }, verifUrl, g.nasabah_hp);
+    } finally {
+      setSendingWA(false);
+    }
   }
 
   return (
@@ -110,8 +117,8 @@ export default function DetailPage({ params }: { params: { id: string } }) {
         </div>
         <button className="btn-ghost" onClick={doCetak}><i className="bi bi-printer" /> Cetak SBG</button>
         {g.nasabah_hp && (
-          <button className="btn-ghost text-emerald-700 border-emerald-200 hover:bg-emerald-50" onClick={doKirimWASBG}>
-            <i className="bi bi-whatsapp" /> Kirim WA
+          <button className="btn-ghost text-emerald-700 border-emerald-200 hover:bg-emerald-50" onClick={doKirimWASBG} disabled={sendingWA}>
+            {sendingWA ? <><i className="bi bi-hourglass-split" /> Menyiapkan…</> : <><i className="bi bi-whatsapp" /> Kirim WA</>}
           </button>
         )}
       </div>
@@ -354,9 +361,13 @@ export default function DetailPage({ params }: { params: { id: string } }) {
             <div className="flex gap-2 justify-center mt-5 flex-wrap">
               <button className="btn-ghost" onClick={() => setLastPay(null)}>Tutup</button>
               {g.nasabah_hp && (
-                <button className="btn-ghost text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-                  onClick={() => kirimWANota(lastPay, { nama: data.usaha || g.nasabah_nama }, g.nasabah_hp)}>
-                  <i className="bi bi-whatsapp" /> Kirim WA
+                <button className="btn-ghost text-emerald-700 border-emerald-200 hover:bg-emerald-50" disabled={sendingWA}
+                  onClick={async () => {
+                    setSendingWA(true);
+                    try { await kirimWANota(lastPay, { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa }, g.nasabah_hp); }
+                    finally { setSendingWA(false); }
+                  }}>
+                  {sendingWA ? <><i className="bi bi-hourglass-split" /> Menyiapkan…</> : <><i className="bi bi-whatsapp" /> Kirim WA</>}
                 </button>
               )}
               <button className="btn-gold" onClick={() => cetakNota(lastPay, { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa })}>
