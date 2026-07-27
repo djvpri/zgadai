@@ -15,6 +15,8 @@ const PUBLIC_ROUTES = [
   "/simulasi",
   "/api/simulasi",
   "/landing",
+  "/verifikasi",
+  "/api/verifikasi",
 ];
 
 export function middleware(req: NextRequest) {

@@ -17,7 +17,11 @@ export function cetakSBG(
   g: SBGGadai,
   barang: SBGBarang[],
   shop: { nama: string; alamat?: string | null; wa?: string | null; petugas?: string | null },
+  verifUrl?: string | null,
 ) {
+  const qrImg = verifUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(verifUrl)}`
+    : "";
   const rows = barang.map((b) => {
     const fotos = Array.isArray(b.foto_urls) && b.foto_urls.length ? b.foto_urls : (b.foto_url ? [b.foto_url] : []);
     const thumbs = fotos.slice(0, 4).map((f) => `<img src="${esc(f)}" class="thumb">`).join("");
@@ -97,6 +101,13 @@ export function cetakSBG(
     <div class="col"><div class="role">Nasabah,</div><div class="sign">${esc(g.nasabah_nama)}</div></div>
     <div class="col"><div class="role">Petugas,</div><div class="sign">${esc(shop.petugas || shop.nama)}</div></div>
   </div>
+  ${qrImg ? `<div style="display:flex;align-items:center;gap:10px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:10px">
+    <img src="${qrImg}" width="72" height="72" alt="QR Verifikasi" style="flex:none">
+    <div style="font-size:9px;color:#334155">
+      <b>Scan untuk verifikasi keaslian SBG ini.</b><br>
+      <span class="muted">Menampilkan status & keaslian tanpa membuka data pribadi.</span>
+    </div>
+  </div>` : ""}
   <div class="note">Barang dapat ditebus/diperpanjang sebelum jatuh tempo. Lewat tempo dapat dilelang sesuai ketentuan.</div>
 </body></html>`;
 

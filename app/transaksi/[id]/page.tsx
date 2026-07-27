@@ -91,7 +91,8 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   }
 
   function doCetak() {
-    cetakSBG(g, data.barang || [], { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa, petugas: g.petugas });
+    const verifUrl = g.verif_kode ? `${window.location.origin}/verifikasi/${g.verif_kode}` : null;
+    cetakSBG(g, data.barang || [], { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa, petugas: g.petugas }, verifUrl);
   }
 
   return (

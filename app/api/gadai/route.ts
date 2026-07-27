@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import pool, { dbAll } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
 import { logAktivitas, rp } from "@/lib/log";
@@ -56,12 +57,13 @@ export async function POST(req: NextRequest) {
       ? b.foto_nasabah : null;
     const promoNama = b.promo_nama ? String(b.promo_nama).slice(0, 100) : null;
     const promoDiskon = promoNama && b.promo_diskon != null ? Math.max(0, Number(b.promo_diskon) || 0) : null;
+    const verifKode = crypto.randomBytes(6).toString("hex"); // 12 char, untuk QR verifikasi publik
     const ins = await client.query(
       `INSERT INTO gadai (tenant_id, no_sbg, nasabah_id, tgl_gadai, tgl_jatuh_tempo,
-                          periode_hari, bunga_persen, taksiran, pokok, pokok_sisa, biaya_admin, keterangan, created_by, foto_nasabah, promo_nama, promo_diskon)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
+                          periode_hari, bunga_persen, taksiran, pokok, pokok_sisa, biaya_admin, keterangan, created_by, foto_nasabah, promo_nama, promo_diskon, verif_kode)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id`,
       [s.tenant_id, "tmp-" + Date.now(), nasabahId, tglGadai, jatuhTempo,
-       periodeHari, bungaPersen, taksiran, pokok, biayaAdmin, b.keterangan || null, s.user_id, fotoNasabah, promoNama, promoDiskon]
+       periodeHari, bungaPersen, taksiran, pokok, biayaAdmin, b.keterangan || null, s.user_id, fotoNasabah, promoNama, promoDiskon, verifKode]
     );
     const id = ins.rows[0].id as number;
     const noSbg = "SBG" + String(id).padStart(5, "0");
