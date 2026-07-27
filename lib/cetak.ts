@@ -13,15 +13,21 @@ interface SBGGadai {
   promo_nama?: string | null; promo_diskon?: number | string | null;
 }
 
-export function cetakSBG(
+export async function cetakSBG(
   g: SBGGadai,
   barang: SBGBarang[],
   shop: { nama: string; alamat?: string | null; wa?: string | null; petugas?: string | null },
   verifUrl?: string | null,
 ) {
-  const qrImg = verifUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(verifUrl)}`
-    : "";
+  let qrImg = "";
+  if (verifUrl) {
+    try {
+      const QRCode = await import("qrcode");
+      qrImg = await QRCode.toDataURL(verifUrl, { width: 90, margin: 1, color: { dark: "#0b1a3a", light: "#ffffff" } });
+    } catch {
+      qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(verifUrl)}`;
+    }
+  }
   const rows = barang.map((b) => {
     const fotos = Array.isArray(b.foto_urls) && b.foto_urls.length ? b.foto_urls : (b.foto_url ? [b.foto_url] : []);
     const thumbs = fotos.slice(0, 4).map((f) => `<img src="${esc(f)}" class="thumb">`).join("");

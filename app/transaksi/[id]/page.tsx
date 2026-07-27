@@ -90,9 +90,9 @@ export default function DetailPage({ params }: { params: { id: string } }) {
     }
   }
 
-  function doCetak() {
+  async function doCetak() {
     const verifUrl = g.verif_kode ? `${window.location.origin}/verifikasi/${g.verif_kode}` : null;
-    cetakSBG(g, data.barang || [], { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa, petugas: g.petugas }, verifUrl);
+    await cetakSBG(g, data.barang || [], { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa, petugas: g.petugas }, verifUrl);
   }
 
   return (
