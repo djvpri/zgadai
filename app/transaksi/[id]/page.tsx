@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import { rupiah, tanggalID, statusJatuhTempo, STATUS_BADGE, waLink } from "@/lib/gadai";
-import { cetakSBG, cetakNota } from "@/lib/cetak";
+import { cetakSBG, cetakNota, kirimWASBG, kirimWANota } from "@/lib/cetak";
 
 type Aksi = "tebus" | "perpanjang" | "cicil" | "lelang" | null;
 
@@ -95,6 +95,11 @@ export default function DetailPage({ params }: { params: { id: string } }) {
     await cetakSBG(g, data.barang || [], { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa, petugas: g.petugas }, verifUrl);
   }
 
+  function doKirimWASBG() {
+    const verifUrl = g.verif_kode ? `${window.location.origin}/verifikasi/${g.verif_kode}` : null;
+    kirimWASBG(g, { nama: data.usaha || g.nasabah_nama }, verifUrl, g.nasabah_hp);
+  }
+
   return (
     <AppShell>
       <div className="flex items-center gap-3 mb-5">
@@ -104,6 +109,11 @@ export default function DetailPage({ params }: { params: { id: string } }) {
           <span className={`badge ${badge?.cls} mt-1`}><i className={`bi ${badge?.icon}`} />{badge?.label}</span>
         </div>
         <button className="btn-ghost" onClick={doCetak}><i className="bi bi-printer" /> Cetak SBG</button>
+        {g.nasabah_hp && (
+          <button className="btn-ghost text-emerald-700 border-emerald-200 hover:bg-emerald-50" onClick={doKirimWASBG}>
+            <i className="bi bi-whatsapp" /> Kirim WA
+          </button>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-5">
@@ -341,8 +351,14 @@ export default function DetailPage({ params }: { params: { id: string } }) {
             {lastPay.lunas
               ? <p className="text-emerald-600 text-sm font-semibold mt-1">LUNAS — barang dapat diambil</p>
               : <p className="text-slate-500 text-xs mt-1 tnum">Sisa pokok {rupiah(lastPay.sisa_pokok)}{lastPay.jatuh_tempo_baru ? ` · JT ${tanggalID(lastPay.jatuh_tempo_baru)}` : ""}</p>}
-            <div className="flex gap-2 justify-center mt-5">
+            <div className="flex gap-2 justify-center mt-5 flex-wrap">
               <button className="btn-ghost" onClick={() => setLastPay(null)}>Tutup</button>
+              {g.nasabah_hp && (
+                <button className="btn-ghost text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                  onClick={() => kirimWANota(lastPay, { nama: data.usaha || g.nasabah_nama }, g.nasabah_hp)}>
+                  <i className="bi bi-whatsapp" /> Kirim WA
+                </button>
+              )}
               <button className="btn-gold" onClick={() => cetakNota(lastPay, { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa })}>
                 <i className="bi bi-printer" /> Cetak Nota
               </button>

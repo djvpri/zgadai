@@ -1,5 +1,5 @@
 // lib/cetak.ts — cetak Surat Bukti Gadai (SBG) via iframe tersembunyi (tanpa dependency).
-import { rupiah, tanggalID } from "./gadai";
+import { rupiah, tanggalID, waLink } from "./gadai";
 
 function esc(s: unknown): string {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -354,6 +354,62 @@ export function cetakLabaRugi(d: any, bulanLabel: string, usaha: string) {
 </body></html>`;
 
   printViaIframe(html);
+}
+
+/** Kirim ringkasan SBG via WhatsApp ke nasabah. */
+export function kirimWASBG(
+  g: SBGGadai,
+  shop: { nama: string },
+  verifUrl?: string | null,
+  phone?: string | null,
+) {
+  if (!phone) return;
+  const lines = [
+    `*Surat Bukti Gadai — ${shop.nama}*`,
+    ``,
+    `Halo ${g.nasabah_nama}, berikut ringkasan gadai Anda:`,
+    `• No. SBG: *${g.no_sbg}*`,
+    `• Pokok pinjaman: *${rupiah(g.pokok)}*`,
+    `• Bunga: ${g.bunga_persen}% / ${g.periode_hari} hari`,
+    `• Tgl gadai: ${tanggalID(g.tgl_gadai)}`,
+    `• Jatuh tempo: *${tanggalID(g.tgl_jatuh_tempo)}*`,
+  ];
+  if (verifUrl) {
+    lines.push(``, `Verifikasi keaslian SBG Anda:`, verifUrl);
+  }
+  lines.push(``, `Terima kasih telah mempercayakan barang kepada kami.`, `— ${shop.nama}`);
+  window.open(waLink(phone, lines.join("\n")), "_blank", "noopener");
+}
+
+/** Kirim bukti nota pembayaran via WhatsApp ke nasabah. */
+export function kirimWANota(
+  n: NotaData,
+  shop: { nama: string },
+  phone?: string | null,
+) {
+  if (!phone) return;
+  const lines = [
+    `*Bukti Pembayaran — ${shop.nama}*`,
+    ``,
+    `No. SBG: *${n.no_sbg}*`,
+    `Nasabah: ${n.nasabah}`,
+    `Jenis: ${JENIS_NOTA[n.jenis] || n.jenis}`,
+    `Tanggal: ${tanggalID(n.tgl)}`,
+    ``,
+    `Total bayar: *${rupiah(n.total)}*`,
+  ];
+  if (n.bunga > 0) lines.push(`  Bunga: ${rupiah(n.bunga)}`);
+  if (n.denda > 0) lines.push(`  Denda: ${rupiah(n.denda)}`);
+  if (n.pokok_dibayar > 0) lines.push(`  Pokok: ${rupiah(n.pokok_dibayar)}`);
+
+  if (n.lunas) {
+    lines.push(``, `✅ *LUNAS* — barang dapat diambil.`);
+  } else {
+    lines.push(``, `Sisa pokok: ${rupiah(n.sisa_pokok)}`);
+    if (n.jatuh_tempo_baru) lines.push(`Jatuh tempo baru: ${tanggalID(n.jatuh_tempo_baru)}`);
+  }
+  lines.push(``, `Terima kasih.`, `— ${shop.nama}`);
+  window.open(waLink(phone, lines.join("\n")), "_blank", "noopener");
 }
 
 function printViaIframe(html: string) {
