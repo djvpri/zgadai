@@ -37,6 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     let total = 0;
     let jatuhTempoBaru: string | null = null;
 
+    let lunas = false;
     if (jenis === "tebus") {
       pokokDibayar = pokokSisa;
       total = pokokSisa + bunga + denda;
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         `UPDATE gadai SET status='lunas', pokok_sisa=0, tgl_lunas=$1, updated_at=now() WHERE id=$2`,
         [today, g.id]
       );
+      lunas = true;
     } else if (jenis === "perpanjang") {
       total = bunga + denda;
       jatuhTempoBaru = jatuhBaru;
@@ -63,6 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           `UPDATE gadai SET pokok_sisa=0, status='lunas', tgl_lunas=$1, updated_at=now() WHERE id=$2`,
           [today, g.id]
         );
+        lunas = true;
       } else {
         jatuhTempoBaru = jatuhBaru;
         await client.query(
@@ -93,6 +96,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           );
         }
       }
+    }
+
+    // Gadai lunas → barang jaminan dikembalikan ke nasabah (keluar dari gudang).
+    if (lunas) {
+      await client.query(
+        `UPDATE barang SET status_fisik='dikembalikan' WHERE gadai_id=$1 AND status_fisik='disimpan'`,
+        [g.id]
+      );
     }
 
     await client.query("COMMIT");

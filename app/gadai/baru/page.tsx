@@ -6,11 +6,11 @@ import { rupiah, plafon, tambahHari, tanggalID, taksiranEmas } from "@/lib/gadai
 import { compressImage, frameToDataUrl } from "@/lib/img";
 
 interface Nasabah { id: number; nama: string; no_hp: string | null; bank_nama?: string | null; no_rekening?: string | null; rekening_atas_nama?: string | null }
-interface Barang { jenis: string; nama: string; berat_gram: string; kadar: string; taksiran: string; fotos: string[] }
+interface Barang { jenis: string; nama: string; berat_gram: string; kadar: string; taksiran: string; fotos: string[]; lokasi: string }
 
 const JENIS = ["emas", "elektronik", "kendaraan", "lainnya"];
 const MIN_FOTO = 4;
-const emptyBarang = (): Barang => ({ jenis: "emas", nama: "", berat_gram: "", kadar: "", taksiran: "", fotos: [] });
+const emptyBarang = (): Barang => ({ jenis: "emas", nama: "", berat_gram: "", kadar: "", taksiran: "", fotos: [], lokasi: "" });
 
 export default function GadaiBaruPage() {
   const router = useRouter();
@@ -237,7 +237,7 @@ export default function GadaiBaruPage() {
         promo_diskon: activePromo ? Number(activePromo.diskon_bunga_persen) : null,
         barang: validBarang.map((b) => ({
           jenis: b.jenis, nama: b.nama, berat_gram: b.berat_gram || null,
-          kadar: b.kadar || null, taksiran: Number(b.taksiran), fotos: b.fotos,
+          kadar: b.kadar || null, taksiran: Number(b.taksiran), fotos: b.fotos, lokasi: b.lokasi || null,
         })),
       }),
     });
@@ -376,6 +376,12 @@ export default function GadaiBaruPage() {
                         : <>Set harga emas/gram di <a href="/pengaturan" className="text-gold-600 underline">Pengaturan</a> untuk taksir otomatis.</>}
                     </p>
                   )}
+
+                  <div className="relative">
+                    <i className="bi bi-geo-alt absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input className="input pl-9" placeholder="Lokasi simpan (mis. Brankas A / Rak 2)" value={b.lokasi}
+                      onChange={(e) => setB(i, { lokasi: e.target.value })} />
+                  </div>
 
                   {/* Galeri foto (min 4) */}
                   <div>

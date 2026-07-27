@@ -71,11 +71,11 @@ export async function POST(req: NextRequest) {
         .filter((f: any) => typeof f === "string" && f.startsWith("data:image/") && f.length < 300_000)
         .slice(0, 8);
       await client.query(
-        `INSERT INTO barang (gadai_id, jenis, nama, deskripsi, berat_gram, kadar, taksiran, foto_url, foto_urls)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        `INSERT INTO barang (gadai_id, jenis, nama, deskripsi, berat_gram, kadar, taksiran, foto_url, foto_urls, lokasi)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
         [id, x.jenis || "lainnya", String(x.nama || "Barang"), x.deskripsi || null,
          x.berat_gram || null, x.kadar || null, Math.round(Number(x.taksiran || 0)),
-         fotos[0] || null, JSON.stringify(fotos)]
+         fotos[0] || null, JSON.stringify(fotos), (x.lokasi && String(x.lokasi).trim()) || null]
       );
     }
     await client.query("COMMIT");

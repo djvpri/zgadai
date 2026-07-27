@@ -249,6 +249,48 @@ export function cetakBrosur(d: {
   printViaIframe(html);
 }
 
+// ---- Cetak Label Barang (stiker, ditempel di bungkus barang) ----
+export interface LabelBarang {
+  kode: string; no_sbg: string; nasabah: string; nama: string;
+  lokasi?: string | null; tgl_jatuh_tempo?: string | null;
+}
+export function cetakLabel(items: LabelBarang[], shop: { nama: string }) {
+  const labels = items.map((it) => `
+    <div class="lbl">
+      <div class="top">
+        <span class="brand">${esc(shop.nama)}</span>
+        <span class="kode">${esc(it.kode)}</span>
+      </div>
+      <div class="nama">${esc(it.nama)}</div>
+      <div class="row"><span class="k">SBG</span><span class="tnum">${esc(it.no_sbg)}</span></div>
+      <div class="row"><span class="k">Nasabah</span><span>${esc(it.nasabah)}</span></div>
+      ${it.tgl_jatuh_tempo ? `<div class="row"><span class="k">Jatuh tempo</span><span class="tnum">${tanggalID(it.tgl_jatuh_tempo)}</span></div>` : ""}
+      <div class="lokasi">${it.lokasi ? "&#128205; " + esc(it.lokasi) : "&#128205; (belum ditandai)"}</div>
+    </div>`).join("");
+
+  const html = `<!doctype html><html lang="id"><head><meta charset="utf-8">
+<title>Label Barang</title>
+<style>
+  @page { size: A4; margin: 8mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color:#0b1a3a; margin:0; }
+  .wrap { display:flex; flex-wrap:wrap; gap:4mm; }
+  .lbl { width:60mm; border:1px dashed #94a3b8; border-radius:6px; padding:6px 8px; font-size:10px; page-break-inside:avoid; }
+  .top { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #0b1a3a; padding-bottom:3px; margin-bottom:3px; }
+  .brand { font-weight:800; font-size:10px; }
+  .kode { font-weight:800; font-size:12px; letter-spacing:.5px; }
+  .nama { font-weight:700; font-size:12px; margin:2px 0; text-transform:capitalize; }
+  .row { display:flex; justify-content:space-between; gap:6px; }
+  .k { color:#64748b; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .lokasi { margin-top:3px; font-weight:700; color:#1e293b; border-top:1px dotted #cbd5e1; padding-top:3px; }
+</style></head><body>
+  <div class="wrap">${labels}</div>
+</body></html>`;
+
+  printViaIframe(html);
+}
+
 function printViaIframe(html: string) {
   const iframe = document.createElement("iframe");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";

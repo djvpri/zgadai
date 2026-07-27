@@ -13,6 +13,7 @@ const NAV: { href: string; label: string; short: string; icon: string; show: (c:
   { href: "/gadai/baru", label: "Gadai Baru", short: "Gadai", icon: "bi-plus-square", show: canOperateOf },
   { href: "/transaksi", label: "Transaksi", short: "Transaksi", icon: "bi-list-check", show: canOperateOf },
   { href: "/laporan", label: "Laporan", short: "Laporan", icon: "bi-bar-chart", show: canOperateOf },
+  { href: "/gudang", label: "Gudang Jaminan", short: "Gudang", icon: "bi-box-seam", show: canOperateOf },
   { href: "/mitra", label: "Fee Mitra", short: "Fee", icon: "bi-percent", show: (c) => isAdminOf(c) || c.is_mitra },
   { href: "/investor", label: "Investor", short: "Return", icon: "bi-graph-up-arrow", show: (c) => isAdminOf(c) || c.is_investor },
   { href: "/staf", label: "Kelola Staf", short: "Staf", icon: "bi-person-badge", show: isAdminOf },

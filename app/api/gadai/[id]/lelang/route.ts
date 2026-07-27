@@ -36,6 +36,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
      WHERE id=$4`,
     [harga, kewajiban, today, g.id]
   );
+  // Barang keluar gudang: ditandai dilelang.
+  await dbRun(`UPDATE barang SET status_fisik='dilelang' WHERE gadai_id=$1 AND status_fisik='disimpan'`, [g.id]);
 
   return NextResponse.json({ ok: true, harga, kewajiban, selisih: harga - kewajiban });
 }

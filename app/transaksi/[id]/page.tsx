@@ -17,6 +17,16 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   const [proc, setProc] = useState(false);
   const [toast, setToast] = useState("");
   const [lastPay, setLastPay] = useState<any>(null);
+  const [lokEdit, setLokEdit] = useState<{ id: number; nama: string; val: string } | null>(null);
+
+  async function simpanLokasi() {
+    if (!lokEdit) return;
+    await fetch("/api/gudang", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "lokasi", ids: [lokEdit.id], lokasi: lokEdit.val }),
+    });
+    setLokEdit(null); setToast("Lokasi disimpan"); load();
+  }
 
   const load = useCallback(() => {
     fetch(`/api/gadai/${id}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
@@ -123,6 +133,16 @@ export default function DetailPage({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                     <div className="font-semibold text-navy-900 tnum shrink-0">{rupiah(b.taksiran)}</div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1.5 text-xs">
+                    <i className="bi bi-geo-alt text-navy-400" />
+                    <span className={b.lokasi ? "text-navy-700 font-medium" : "text-slate-400"}>{b.lokasi || "Lokasi belum ditandai"}</span>
+                    {b.status_fisik === "hilang" && <span className="text-red-600 font-semibold">· ⚠ HILANG</span>}
+                    {aktif && (
+                      <button className="text-navy-600 hover:underline font-semibold" onClick={() => setLokEdit({ id: b.id, nama: b.nama, val: b.lokasi || "" })}>
+                        {b.lokasi ? "ubah" : "set"}
+                      </button>
+                    )}
                   </div>
                   {(() => {
                     const fotos: string[] = Array.isArray(b.foto_urls) && b.foto_urls.length ? b.foto_urls : (b.foto_url ? [b.foto_url] : []);
@@ -305,6 +325,22 @@ export default function DetailPage({ params }: { params: { id: string } }) {
               <button className="btn-gold" onClick={() => cetakNota(lastPay, { nama: data.usaha || g.nasabah_nama, alamat: data.alamat_toko, wa: data.no_wa })}>
                 <i className="bi bi-printer" /> Cetak Nota
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {lokEdit && (
+        <div className="fixed inset-0 z-50 bg-navy-950/40 grid place-items-center p-4" onClick={() => setLokEdit(null)}>
+          <div className="card p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-navy-900">Lokasi Penyimpanan</h3>
+            <p className="text-xs text-slate-500 capitalize">{lokEdit.nama} — contoh: <b>Brankas A / Rak 2 / Slot 15</b></p>
+            <input className="input" autoFocus placeholder="mis. Brankas A / Rak 2" value={lokEdit.val}
+              onChange={(e) => setLokEdit({ ...lokEdit, val: e.target.value })}
+              onKeyDown={(e) => { if (e.key === "Enter") simpanLokasi(); }} />
+            <div className="flex gap-2 justify-end">
+              <button className="btn-ghost" onClick={() => setLokEdit(null)}>Batal</button>
+              <button className="btn-primary" onClick={simpanLokasi}>Simpan</button>
             </div>
           </div>
         </div>
