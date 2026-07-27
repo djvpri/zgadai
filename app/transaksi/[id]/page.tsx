@@ -18,6 +18,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   const [toast, setToast] = useState("");
   const [lastPay, setLastPay] = useState<any>(null);
   const [lokEdit, setLokEdit] = useState<{ id: number; nama: string; val: string } | null>(null);
+  const [metodeBayar, setMetodeBayar] = useState("tunai");
 
   async function simpanLokasi() {
     if (!lokEdit) return;
@@ -57,7 +58,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
         body: JSON.stringify({ harga_lelang: Number(hargaLelang || 0) }),
       });
     } else {
-      const body: any = { jenis: aksi };
+      const body: any = { jenis: aksi, metode: metodeBayar };
       if (aksi === "cicil") body.pokok_dibayar = Number(cicil || 0);
       r = await fetch(`/api/gadai/${id}/bayar`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -295,6 +296,20 @@ export default function DetailPage({ params }: { params: { id: string } }) {
                   </p>
                 )}
                 <p className="text-[11px] text-slate-400 mt-1">Status gadai akan menjadi &ldquo;Lelang&rdquo; dan tidak bisa ditebus lagi.</p>
+              </div>
+            )}
+
+            {aksi !== "lelang" && (
+              <div className="mb-4">
+                <label className="label">Metode pembayaran</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["tunai", "transfer"] as const).map((m) => (
+                    <button key={m} onClick={() => setMetodeBayar(m)}
+                      className={`py-2 rounded-xl text-sm font-semibold border capitalize ${metodeBayar === m ? "bg-navy-800 text-white border-navy-800" : "bg-white text-navy-700 border-slate-200"}`}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 

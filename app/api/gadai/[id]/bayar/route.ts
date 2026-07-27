@@ -75,11 +75,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     }
 
-    await client.query(
+    const payIns = await client.query(
       `INSERT INTO pembayaran (tenant_id, gadai_id, tgl, jenis, bunga_dibayar, pokok_dibayar, denda_dibayar, total, jatuh_tempo_baru, keterangan, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
       [s.tenant_id, g.id, today, jenis, bunga, pokokDibayar, denda, total, jatuhTempoBaru, b.keterangan || null, s.user_id]
     );
+    const payId = payIns.rows[0].id as number;
+
+    // Buku kas: pembayaran = uang masuk.
+    const metode = b.metode === "transfer" ? "transfer" : "tunai";
+    if (total > 0) {
+      await client.query(
+        `INSERT INTO kas (tenant_id, tgl, arah, kategori, metode, jumlah, keterangan, ref_gadai_id, ref_pembayaran_id, created_by)
+         VALUES ($1,$2,'masuk','pembayaran',$3,$4,$5,$6,$7,$8)`,
+        [s.tenant_id, today, metode, total, `${jenis} ${g.no_sbg}`, g.id, payId, s.user_id]
+      );
+    }
 
     // Fee mitra: kalau gadai ini dibuat oleh MITRA, catat fee dari bunga.
     if (bunga > 0 && g.created_by) {

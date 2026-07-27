@@ -41,6 +41,7 @@ export default function GadaiBaruPage() {
   const [promos, setPromos] = useState<any[]>([]);
   const [baseBunga, setBaseBunga] = useState(2);
   const [rekCopied, setRekCopied] = useState(false);
+  const [metode, setMetode] = useState("tunai");
 
   async function salinRek() {
     if (!nasabah?.no_rekening) return;
@@ -232,7 +233,7 @@ export default function GadaiBaruPage() {
       body: JSON.stringify({
         nasabah_id: nasabah.id, tgl_gadai: tglGadai, tempo_hari: tempoHari,
         periode_hari: periodeHari, bunga_persen: Number(bunga), biaya_admin: Number(biayaAdmin),
-        pokok: Number(pokok), foto_nasabah: fotoNasabah || null,
+        pokok: Number(pokok), foto_nasabah: fotoNasabah || null, metode,
         promo_nama: activePromo?.nama || null,
         promo_diskon: activePromo ? Number(activePromo.diskon_bunga_persen) : null,
         barang: validBarang.map((b) => ({
@@ -482,9 +483,18 @@ export default function GadaiBaruPage() {
               </div>
             </div>
 
-            <div>
-              <label className="label">Biaya Admin</label>
-              <input className="input tnum" inputMode="numeric" placeholder="0" value={biayaAdmin} onChange={(e) => setBiayaAdmin(e.target.value.replace(/\D/g, ""))} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Biaya Admin</label>
+                <input className="input tnum" inputMode="numeric" placeholder="0" value={biayaAdmin} onChange={(e) => setBiayaAdmin(e.target.value.replace(/\D/g, ""))} />
+              </div>
+              <div>
+                <label className="label">Pencairan via</label>
+                <select className="input" value={metode} onChange={(e) => setMetode(e.target.value)}>
+                  <option value="tunai">Tunai</option>
+                  <option value="transfer">Transfer</option>
+                </select>
+              </div>
             </div>
 
             <div className="bg-navy-50 rounded-xl p-3 text-sm space-y-1">

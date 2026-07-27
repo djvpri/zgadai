@@ -78,6 +78,18 @@ export async function POST(req: NextRequest) {
          fotos[0] || null, JSON.stringify(fotos), (x.lokasi && String(x.lokasi).trim()) || null]
       );
     }
+
+    // Buku kas: pencairan = uang yang benar-benar keluar ke nasabah (pokok − admin).
+    const metode = b.metode === "transfer" ? "transfer" : "tunai";
+    const diterima = Math.max(0, pokok - biayaAdmin);
+    if (diterima > 0) {
+      await client.query(
+        `INSERT INTO kas (tenant_id, tgl, arah, kategori, metode, jumlah, keterangan, ref_gadai_id, created_by)
+         VALUES ($1,$2,'keluar','pencairan',$3,$4,$5,$6,$7)`,
+        [s.tenant_id, tglGadai, metode, diterima, `Pencairan ${noSbg}`, id, s.user_id]
+      );
+    }
+
     await client.query("COMMIT");
     return NextResponse.json({ id, no_sbg: noSbg });
   } catch (e: any) {
