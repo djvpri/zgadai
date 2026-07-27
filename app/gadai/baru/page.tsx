@@ -5,7 +5,7 @@ import AppShell from "@/components/AppShell";
 import { rupiah, plafon, tambahHari, tanggalID, taksiranEmas } from "@/lib/gadai";
 import { compressImage, frameToDataUrl } from "@/lib/img";
 
-interface Nasabah { id: number; nama: string; no_hp: string | null }
+interface Nasabah { id: number; nama: string; no_hp: string | null; bank_nama?: string | null; no_rekening?: string | null; rekening_atas_nama?: string | null }
 interface Barang { jenis: string; nama: string; berat_gram: string; kadar: string; taksiran: string; fotos: string[] }
 
 const JENIS = ["emas", "elektronik", "kendaraan", "lainnya"];
@@ -40,6 +40,12 @@ export default function GadaiBaruPage() {
   const [adminPersen, setAdminPersen] = useState(0);
   const [promos, setPromos] = useState<any[]>([]);
   const [baseBunga, setBaseBunga] = useState(2);
+  const [rekCopied, setRekCopied] = useState(false);
+
+  async function salinRek() {
+    if (!nasabah?.no_rekening) return;
+    try { await navigator.clipboard.writeText(String(nasabah.no_rekening)); setRekCopied(true); setTimeout(() => setRekCopied(false), 1500); } catch {}
+  }
 
   useEffect(() => {
     fetch("/api/promo").then((r) => r.json()).then((d) => setPromos(d.promo || [])).catch(() => {});
@@ -207,7 +213,8 @@ export default function GadaiBaruPage() {
     });
     if (r.ok) {
       const d = await r.json();
-      setNasabah({ id: d.nasabah.id, nama: d.nasabah.nama, no_hp: d.nasabah.no_hp });
+      setNasabah({ id: d.nasabah.id, nama: d.nasabah.nama, no_hp: d.nasabah.no_hp,
+        bank_nama: d.nasabah.bank_nama, no_rekening: d.nasabah.no_rekening, rekening_atas_nama: d.nasabah.rekening_atas_nama });
       setShowNew(false);
     }
   }
@@ -477,6 +484,23 @@ export default function GadaiBaruPage() {
             <div className="bg-navy-50 rounded-xl p-3 text-sm space-y-1">
               <div className="flex justify-between"><span className="text-slate-500">Jatuh tempo</span><span className="font-medium text-navy-900 tnum">{tanggalID(jatuhTempo)}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Diterima nasabah</span><span className="font-bold text-emerald-700 tnum">{rupiah(Math.max(0, Number(pokok || 0) - Number(biayaAdmin || 0)))}</span></div>
+              {nasabah && (
+                nasabah.no_rekening ? (
+                  <div className="flex items-start justify-between gap-2 border-t border-navy-200 pt-1.5 mt-1">
+                    <div className="min-w-0">
+                      <div className="text-[11px] text-slate-500">Transfer ke</div>
+                      <div className="font-semibold text-navy-900 tnum truncate">{nasabah.bank_nama || "Bank"} {nasabah.no_rekening}</div>
+                      <div className="text-[11px] text-slate-500 truncate">a.n. {nasabah.rekening_atas_nama || nasabah.nama}</div>
+                    </div>
+                    <button type="button" onClick={salinRek} title="Salin nomor rekening"
+                      className="shrink-0 text-[11px] font-semibold text-navy-600 hover:bg-navy-100 border border-navy-200 rounded-lg px-2 py-1">
+                      <i className={`bi ${rekCopied ? "bi-check2" : "bi-clipboard"} me-1`} />{rekCopied ? "Tersalin" : "Salin"}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-amber-600 border-t border-navy-200 pt-1.5 mt-1"><i className="bi bi-info-circle me-1" />Rekening nasabah belum ada (isi di data nasabah jika bayar via transfer).</p>
+                )
+              )}
             </div>
 
             {err && <p className="text-sm text-red-600">{err}</p>}
