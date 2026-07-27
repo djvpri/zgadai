@@ -33,7 +33,7 @@ export default function DetailPage({ params }: { params: { id: string } }) {
   const g = data.gadai;
   const tebus = data.tebus;
   const aktif = g.status === "aktif";
-  const isAdmin = data.role === "admin";
+  const isAdmin = data.access === "admin";
   const badge = aktif ? (STATUS_BADGE[statusJatuhTempo(g.tgl_jatuh_tempo)] || STATUS_BADGE.aktif) : STATUS_BADGE[g.status];
   const selisihLelang = Number(g.harga_lelang || 0) - Number(g.nilai_kewajiban_lelang || 0);
   const previewSelisih = Number(hargaLelang || 0) - (tebus ? tebus.total : 0);

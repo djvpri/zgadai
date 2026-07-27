@@ -14,7 +14,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (s.role !== "admin") return NextResponse.json({ error: "Hanya admin yang boleh mengubah pengaturan" }, { status: 403 });
+  if (s.access !== "admin") return NextResponse.json({ error: "Hanya admin yang boleh mengubah pengaturan" }, { status: 403 });
 
   const b = await req.json().catch(() => ({}));
   const patch: Record<string, unknown> = {};

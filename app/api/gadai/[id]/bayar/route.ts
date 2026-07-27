@@ -7,7 +7,7 @@ import { hitungBunga, periodeBerjalan, selisihHari, tambahHari, hariTelat, hitun
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (s.role === "investor") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
+  if (s.access === "none") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
   const b = await req.json().catch(() => ({}));
   const jenis = b.jenis as string;
   if (!["tebus", "perpanjang", "cicil"].includes(jenis))
@@ -80,9 +80,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     // Fee mitra: kalau gadai ini dibuat oleh MITRA, catat fee dari bunga.
     if (bunga > 0 && g.created_by) {
-      const m = await client.query(`SELECT role, fee_persen FROM users WHERE id = $1`, [g.created_by]);
+      const m = await client.query(`SELECT is_mitra, fee_persen FROM users WHERE id = $1`, [g.created_by]);
       const mr = m.rows[0];
-      if (mr && mr.role === "mitra" && Number(mr.fee_persen) > 0) {
+      if (mr && mr.is_mitra && Number(mr.fee_persen) > 0) {
         const fee = Math.round((bunga * Number(mr.fee_persen)) / 100);
         if (fee > 0) {
           const nb = await client.query(`SELECT nama FROM nasabah WHERE id = $1`, [g.nasabah_id]);

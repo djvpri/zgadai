@@ -10,12 +10,16 @@ export default function SayaPage() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"pinjaman" | "simulasi">("pinjaman");
+  const [tab, setTab] = useState<"pinjaman" | "fee" | "return" | "simulasi">("pinjaman");
 
   useEffect(() => {
     fetch("/api/saya")
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setData)
+      .then((d) => {
+        setData(d);
+        const c = d?.caps || {};
+        setTab(c.pinjaman ? "pinjaman" : c.mitra ? "fee" : c.investor ? "return" : "simulasi");
+      })
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
   }, [router]);
@@ -40,15 +44,20 @@ export default function SayaPage() {
         ) : (
           <>
             <div className="mb-4">
-              <h1 className="text-xl font-bold text-navy-900">Halo, {data?.nasabah?.nama || "Nasabah"}</h1>
+              <h1 className="text-xl font-bold text-navy-900">Halo, {data?.orang?.nama || "Nasabah"}</h1>
+              {(data?.caps?.mitra || data?.caps?.investor) && (
+                <p className="text-sm text-slate-500">Portal pribadi Anda — pinjaman, fee, dan return dalam satu tempat.</p>
+              )}
             </div>
 
-            {/* Tab */}
-            <div className="flex gap-2 mb-4">
+            {/* Tab (hanya yang relevan) */}
+            <div className="flex flex-wrap gap-2 mb-4">
               {[
-                { k: "pinjaman", label: "Pinjaman Saya", icon: "bi-safe2" },
-                { k: "simulasi", label: "Simulasi", icon: "bi-calculator" },
-              ].map((t) => (
+                { k: "pinjaman", label: "Pinjaman Saya", icon: "bi-safe2", show: data?.caps?.pinjaman },
+                { k: "fee", label: "Fee Saya", icon: "bi-percent", show: data?.caps?.mitra },
+                { k: "return", label: "Return Saya", icon: "bi-graph-up-arrow", show: data?.caps?.investor },
+                { k: "simulasi", label: "Simulasi", icon: "bi-calculator", show: true },
+              ].filter((t) => t.show).map((t) => (
                 <button key={t.k} onClick={() => setTab(t.k as any)}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
                     tab === t.k ? "bg-navy-800 text-white" : "bg-white border border-slate-200 text-navy-700"
@@ -58,8 +67,8 @@ export default function SayaPage() {
               ))}
             </div>
 
-            {tab === "pinjaman" ? (
-              (!data?.gadai || data.gadai.length === 0) ? (
+            {tab === "pinjaman" && (
+              (!data?.pinjaman || data.pinjaman.length === 0) ? (
                 <div className="card p-8 text-center">
                   <i className="bi bi-safe2 text-3xl text-slate-300" />
                   <p className="font-semibold text-slate-600 mt-3">Belum ada data pinjaman</p>
@@ -67,12 +76,13 @@ export default function SayaPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {data.gadai.map((g: any) => <GadaiCard key={g.id} g={g} nama={data?.nasabah?.nama || ""} />)}
+                  {data.pinjaman.map((g: any) => <GadaiCard key={g.id} g={g} nama={data?.orang?.nama || ""} />)}
                 </div>
               )
-            ) : (
-              data?.sim && <SimulasiCard sim={data.sim} promo={data.promoAktif} />
             )}
+            {tab === "fee" && <FeePanel fee={data?.fee} />}
+            {tab === "return" && <ReturnPanel ret={data?.ret} />}
+            {tab === "simulasi" && data?.sim && <SimulasiCard sim={data.sim} promo={data.promoAktif} />}
 
             <p className="text-center text-xs text-slate-400 mt-8">
               Layanan ekosistem <a href={ZONE} className="text-navy-600 font-semibold">Zomet</a>
@@ -80,6 +90,62 @@ export default function SayaPage() {
           </>
         )}
       </main>
+    </div>
+  );
+}
+
+function FeePanel({ fee }: { fee: any }) {
+  if (!fee || fee.jumlah === 0) {
+    return <div className="card p-8 text-center text-slate-400 text-sm">Belum ada fee tercatat.</div>;
+  }
+  return (
+    <div className="space-y-4">
+      <div className="card p-4 grid grid-cols-3 gap-2 text-center">
+        <div><div className="text-lg font-bold text-navy-900 tnum">{rupiah(fee.total)}</div><div className="text-[11px] text-slate-500">Total fee</div></div>
+        <div><div className="text-lg font-bold text-amber-600 tnum">{rupiah(fee.belum)}</div><div className="text-[11px] text-slate-500">Belum dibayar</div></div>
+        <div><div className="text-lg font-bold text-slate-700">{fee.jumlah}</div><div className="text-[11px] text-slate-500">Transaksi</div></div>
+      </div>
+      <div className="card overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-slate-100 font-bold text-navy-900"><i className="bi bi-receipt me-2 text-navy-500" />Rincian Fee</div>
+        <ul className="divide-y divide-slate-100">
+          {fee.entries.map((e: any) => (
+            <li key={e.id} className="flex items-center gap-3 px-5 py-3">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-navy-900 tnum">{e.no_sbg} <span className="font-normal text-slate-500">· {e.nasabah || "—"}</span></div>
+                <div className="text-xs text-slate-500 tnum">{tanggalID(e.tgl)}{e.usaha ? ` · ${e.usaha}` : ""} · bunga {rupiah(e.bunga_dibayar)}</div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="font-semibold text-navy-900 tnum">{rupiah(e.fee)}</div>
+                <span className={`text-[11px] font-semibold ${e.paid ? "text-emerald-600" : "text-amber-600"}`}>{e.paid ? "Lunas" : "Belum"}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function ReturnPanel({ ret }: { ret: any }) {
+  if (!ret || !ret.items?.length) {
+    return <div className="card p-8 text-center text-slate-400 text-sm">Belum ada data investasi.</div>;
+  }
+  return (
+    <div className="space-y-4">
+      {ret.items.map((it: any, i: number) => (
+        <div key={i} className="card p-5">
+          <div className="font-bold text-navy-900 mb-3">{it.usaha}</div>
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <div className="bg-navy-50 rounded-xl p-3"><div className="text-lg font-bold text-navy-900 tnum">{rupiah(it.modal)}</div><div className="text-[11px] text-slate-500">Modal Anda</div></div>
+            <div className="bg-emerald-50 rounded-xl p-3"><div className="text-lg font-bold text-emerald-700 tnum">{rupiah(it.ret)}</div><div className="text-[11px] text-slate-500">Estimasi return ({it.bagi_hasil_persen}%)</div></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-center mt-3 text-sm">
+            <div><div className="font-semibold text-navy-900 tnum">{rupiah(it.laba)}</div><div className="text-[11px] text-slate-500">Laba usaha (kumulatif)</div></div>
+            <div><div className="font-semibold text-navy-900 tnum">{rupiah(it.uang_beredar)}</div><div className="text-[11px] text-slate-500">Uang beredar</div></div>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-3">Estimasi bagi hasil {it.bagi_hasil_persen}% dari laba kumulatif. Angka final ditentukan pada periode bagi hasil.</p>
+        </div>
+      ))}
     </div>
   );
 }

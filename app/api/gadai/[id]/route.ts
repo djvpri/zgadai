@@ -6,7 +6,7 @@ import { hitungTebus } from "@/lib/gadai";
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const s = await currentSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (s.role === "investor") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
+  if (s.access === "none") return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
 
   const gadai = await dbOne<any>(
     `SELECT g.*, n.nama AS nasabah_nama, n.no_hp AS nasabah_hp, n.no_ktp AS nasabah_ktp, n.alamat AS nasabah_alamat,
@@ -38,7 +38,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   return NextResponse.json({
     gadai, barang, pembayaran, tebus,
-    role: s.role,
+    access: s.access,
     usaha: s.nama_usaha,
     alamat_toko: setRow?.settings?.alamat_toko || "",
     no_wa: setRow?.settings?.no_wa || "",

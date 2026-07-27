@@ -26,7 +26,7 @@ export default function MitraPage() {
     load();
   }
 
-  const isAdmin = d?.role === "admin";
+  const isAdmin = d?.admin;
 
   return (
     <AppShell>

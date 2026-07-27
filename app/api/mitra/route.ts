@@ -5,10 +5,10 @@ import { currentSession } from "@/lib/auth";
 // GET /api/mitra — laporan fee. Admin: semua mitra. Mitra: fee-nya sendiri.
 export async function GET() {
   const s = await currentSession();
-  if (!s || (s.role !== "admin" && s.role !== "mitra"))
+  if (!s || (s.access !== "admin" && !s.is_mitra))
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
-  const isAdmin = s.role === "admin";
+  const isAdmin = s.access === "admin";
   const filter = isAdmin ? "" : "AND mf.mitra_id = $2";
   const params: any[] = isAdmin ? [s.tenant_id] : [s.tenant_id, s.user_id];
 
@@ -33,13 +33,13 @@ export async function GET() {
     params
   );
 
-  return NextResponse.json({ role: s.role, summary, entries });
+  return NextResponse.json({ admin: isAdmin, summary, entries });
 }
 
 // POST /api/mitra — tandai fee mitra LUNAS (admin). Body: { mitra_id }
 export async function POST(req: NextRequest) {
   const s = await currentSession();
-  if (!s || s.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  if (!s || s.access !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   const b = await req.json().catch(() => ({}));
   const mitraId = Number(b.mitra_id);
   if (!mitraId) return NextResponse.json({ error: "mitra_id wajib" }, { status: 400 });

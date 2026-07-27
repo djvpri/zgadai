@@ -6,8 +6,9 @@ import { currentSession } from "@/lib/auth";
 // Admin: semua investor. Investor: dirinya sendiri.
 export async function GET() {
   const s = await currentSession();
-  if (!s || (s.role !== "admin" && s.role !== "investor"))
+  if (!s || (s.access !== "admin" && !s.is_investor))
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  const isAdmin = s.access === "admin";
   const t = s.tenant_id;
 
   // Laba usaha (kumulatif): bunga + denda dari pembayaran + biaya admin dari gadai.
@@ -18,11 +19,11 @@ export async function GET() {
   const beredar = await dbOne<any>(`SELECT COALESCE(SUM(pokok_sisa) FILTER (WHERE status='aktif'),0)::bigint AS x FROM gadai WHERE tenant_id = $1`, [t]);
   const uangBeredar = Number(beredar?.x || 0);
 
-  const filter = s.role === "admin" ? "" : "AND id = $2";
-  const params: any[] = s.role === "admin" ? [t] : [t, s.user_id];
+  const filter = isAdmin ? "" : "AND id = $2";
+  const params: any[] = isAdmin ? [t] : [t, s.user_id];
   const rows = await dbAll<any>(
     `SELECT id, nama, modal, bagi_hasil_persen
-       FROM users WHERE tenant_id = $1 AND role = 'investor' ${filter}
+       FROM users WHERE tenant_id = $1 AND is_investor = true ${filter}
       ORDER BY created_at`,
     params
   );
@@ -35,5 +36,5 @@ export async function GET() {
   }));
   const totalModal = investors.reduce((a, i) => a + i.modal, 0);
 
-  return NextResponse.json({ role: s.role, laba, uang_beredar: uangBeredar, total_modal: totalModal, investors });
+  return NextResponse.json({ admin: isAdmin, laba, uang_beredar: uangBeredar, total_modal: totalModal, investors });
 }

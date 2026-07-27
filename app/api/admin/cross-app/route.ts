@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   if (!authed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const users = await dbAll(
     `SELECT id, email, nama,
-            CASE WHEN role = 'admin' THEN 'ADMIN' ELSE 'USER' END AS role,
+            CASE WHEN access = 'admin' THEN 'ADMIN' ELSE 'USER' END AS role,
             tenant_id, is_active AS active, is_active
        FROM users ORDER BY created_at`
   );
@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
         const existing = await dbOne<any>(`SELECT id, tenant_id FROM users WHERE lower(email) = $1`, [email]);
         if (existing) return NextResponse.json({ ok: true, id: existing.id, note: "sudah ada" });
 
-        // Z One mengirim "admin" / "user" → petugas = kasir, selain "admin".
-        const role = String(data.role || "").toLowerCase() === "admin" ? "admin" : "kasir";
+        // Z One mengirim "admin" / "user" → akses operasional marketing, selain "admin".
+        const access = String(data.role || "").toLowerCase() === "admin" ? "admin" : "marketing";
         const pass = data.password ? hashPassword(String(data.password)) : null;
         const nama = String(data.nama || email);
 
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
             [namaUsaha, slug, nama, email]
           );
           const owner = await dbOne<any>(
-            `INSERT INTO users (tenant_id, email, password_hash, nama, role) VALUES ($1,$2,$3,$4,'admin') RETURNING id`,
+            `INSERT INTO users (tenant_id, email, password_hash, nama, access) VALUES ($1,$2,$3,$4,'admin') RETURNING id`,
             [tenant!.id, email, pass, nama]
           );
           return NextResponse.json({ ok: true, id: owner!.id, tenant_id: tenant!.id, role: "admin" });
@@ -75,14 +75,16 @@ export async function POST(req: NextRequest) {
         if (!tenantId) return NextResponse.json({ error: "Beberapa toko ada — pilih toko dulu" }, { status: 400 });
 
         const staff = await dbOne<any>(
-          `INSERT INTO users (tenant_id, email, password_hash, nama, role) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-          [tenantId, email, pass, nama, role]
+          `INSERT INTO users (tenant_id, email, password_hash, nama, access) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+          [tenantId, email, pass, nama, access]
         );
-        return NextResponse.json({ ok: true, id: staff!.id, tenant_id: tenantId, role });
+        return NextResponse.json({ ok: true, id: staff!.id, tenant_id: tenantId, role: access === "admin" ? "admin" : "user" });
       }
       case "updateRole": {
-        const role = String(data.role || "").toLowerCase() === "admin" ? "admin" : "kasir";
-        await dbRun(`UPDATE users SET role = $1 WHERE lower(email) = $2`, [role, email]);
+        // Z One hanya kenal ADMIN/USER → petakan ke akses admin/marketing.
+        // Jangan sentuh flag is_mitra/is_investor (dikelola di ZGadai /staf).
+        const access = String(data.role || "").toLowerCase() === "admin" ? "admin" : "marketing";
+        await dbRun(`UPDATE users SET access = $1 WHERE lower(email) = $2`, [access, email]);
         return NextResponse.json({ ok: true });
       }
       case "resetPassword": {

@@ -8,7 +8,9 @@ export interface SessionUser {
   tenant_id: number;
   email: string;
   nama: string;
-  role: "admin" | "kasir" | "mitra" | "investor";
+  access: "admin" | "marketing" | "none"; // akses operasional
+  is_mitra: boolean;                        // dapat fee dari bunga
+  is_investor: boolean;                     // bagi hasil dari laba
   nama_usaha: string;
   slug: string;
 }
@@ -41,7 +43,8 @@ export async function createSession(userId: number, tenantId: number, days = 30)
 export async function getSession(sessionId: string): Promise<SessionUser | null> {
   if (!sessionId) return null;
   const row = await dbOne<SessionUser>(
-    `SELECT s.id as session_id, s.user_id, u.tenant_id, u.email, u.nama, u.role,
+    `SELECT s.id as session_id, s.user_id, u.tenant_id, u.email, u.nama,
+            u.access, u.is_mitra, u.is_investor,
             t.nama_usaha, t.slug
        FROM sessions s
        JOIN users u ON s.user_id = u.id

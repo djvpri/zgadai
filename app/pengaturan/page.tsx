@@ -50,7 +50,7 @@ export default function PengaturanPage() {
   // Guard: hanya admin yang boleh buka Pengaturan.
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => {
-      if (d.kind !== "staff" || d.user?.role !== "admin") router.replace("/dashboard");
+      if (d.kind !== "staff" || d.user?.access !== "admin") router.replace("/dashboard");
     }).catch(() => {});
   }, [router]);
 

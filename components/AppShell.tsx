@@ -3,22 +3,25 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-const OPS = ["admin", "kasir", "mitra"]; // peran operasional
-const NAV: { href: string; label: string; short: string; icon: string; roles: string[] }[] = [
-  { href: "/dashboard", label: "Dashboard", short: "Home", icon: "bi-speedometer2", roles: ["admin", "kasir", "mitra", "investor"] },
-  { href: "/nasabah", label: "Nasabah", short: "Nasabah", icon: "bi-people", roles: OPS },
-  { href: "/gadai/baru", label: "Gadai Baru", short: "Gadai", icon: "bi-plus-square", roles: OPS },
-  { href: "/transaksi", label: "Transaksi", short: "Transaksi", icon: "bi-list-check", roles: OPS },
-  { href: "/laporan", label: "Laporan", short: "Laporan", icon: "bi-bar-chart", roles: ["admin", "kasir", "mitra", "investor"] },
-  { href: "/mitra", label: "Fee Mitra", short: "Fee", icon: "bi-percent", roles: ["admin", "mitra"] },
-  { href: "/investor", label: "Investor", short: "Return", icon: "bi-graph-up-arrow", roles: ["admin", "investor"] },
-  { href: "/staf", label: "Kelola Staf", short: "Staf", icon: "bi-person-badge", roles: ["admin"] },
-  { href: "/pengaturan", label: "Pengaturan", short: "Atur", icon: "bi-gear", roles: ["admin"] },
+interface Cap { access: "admin" | "marketing" | "none"; is_mitra: boolean; is_investor: boolean }
+const isAdminOf = (c: Cap) => c.access === "admin";
+const canOperateOf = (c: Cap) => c.access === "admin" || c.access === "marketing";
+
+const NAV: { href: string; label: string; short: string; icon: string; show: (c: Cap) => boolean }[] = [
+  { href: "/dashboard", label: "Dashboard", short: "Home", icon: "bi-speedometer2", show: canOperateOf },
+  { href: "/nasabah", label: "Nasabah", short: "Nasabah", icon: "bi-people", show: canOperateOf },
+  { href: "/gadai/baru", label: "Gadai Baru", short: "Gadai", icon: "bi-plus-square", show: canOperateOf },
+  { href: "/transaksi", label: "Transaksi", short: "Transaksi", icon: "bi-list-check", show: canOperateOf },
+  { href: "/laporan", label: "Laporan", short: "Laporan", icon: "bi-bar-chart", show: canOperateOf },
+  { href: "/mitra", label: "Fee Mitra", short: "Fee", icon: "bi-percent", show: (c) => isAdminOf(c) || c.is_mitra },
+  { href: "/investor", label: "Investor", short: "Return", icon: "bi-graph-up-arrow", show: (c) => isAdminOf(c) || c.is_investor },
+  { href: "/staf", label: "Kelola Staf", short: "Staf", icon: "bi-person-badge", show: isAdminOf },
+  { href: "/pengaturan", label: "Pengaturan", short: "Atur", icon: "bi-gear", show: isAdminOf },
 ];
 const CORE = ["/dashboard", "/nasabah", "/gadai/baru", "/transaksi", "/laporan"];
 
 interface Me {
-  user: { nama: string; email: string; role: string };
+  user: { nama: string; email: string; access: "admin" | "marketing" | "none"; is_mitra: boolean; is_investor: boolean };
   tenant: { nama_usaha: string };
 }
 
@@ -32,6 +35,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => {
         if (data.kind === "nasabah") { router.replace("/saya"); return; }
+        // Staf tanpa akses operasional → portal pribadi /saya (fee/return/pinjaman).
+        if (data.user?.access === "none") { router.replace("/saya"); return; }
         setMe(data);
       })
       .catch(() => router.replace("/login"));
@@ -45,14 +50,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const active = (href: string) =>
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 
-  const role = me?.user.role;
-  const roleLabel = me ? ({ admin: "Admin", mitra: "Mitra", investor: "Investor", kasir: "Marketing" } as any)[role || ""] || "Marketing" : "";
-  const nav = NAV.filter((n) => !!role && n.roles.includes(role));
+  const cap: Cap | null = me ? me.user : null;
+  const isAdmin = !!cap && isAdminOf(cap);
+  const roleLabel = !cap ? "" : isAdmin ? "Admin" : cap.access === "marketing" ? "Marketing" : "Staf";
+  const nav = cap ? NAV.filter((n) => n.show(cap)) : [];
   const bottomNav = nav.filter((n) => CORE.includes(n.href));
   const topExtra = nav.filter((n) => !CORE.includes(n.href)); // menu khusus → ikon top bar mobile
   const navLabel = (n: { href: string; label: string }) =>
-    n.href === "/mitra" && role === "mitra" ? "Fee Saya"
-    : n.href === "/investor" && role === "investor" ? "Return Saya"
+    n.href === "/mitra" && !isAdmin ? "Fee Saya"
+    : n.href === "/investor" && !isAdmin ? "Return Saya"
     : n.label;
 
   return (

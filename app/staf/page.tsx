@@ -15,7 +15,7 @@ export default function StafPage() {
     fetch("/api/staf").then(async (r) => {
       if (r.status === 403) { router.replace("/dashboard"); return; }
       const d = await r.json();
-      setStaf((d.staf || []).map((u: any) => ({ ...u, fee_persen: Number(u.fee_persen), modal: Number(u.modal || 0), bagi_hasil_persen: Number(u.bagi_hasil_persen || 0) })));
+      setStaf((d.staf || []).map((u: any) => ({ ...u, access: u.access || "none", is_mitra: !!u.is_mitra, is_investor: !!u.is_investor, fee_persen: Number(u.fee_persen), modal: Number(u.modal || 0), bagi_hasil_persen: Number(u.bagi_hasil_persen || 0) })));
       setMeId(d.me ?? null);
     }).finally(() => setLoading(false));
   }
@@ -29,7 +29,7 @@ export default function StafPage() {
     setSavingId(u.id); setMsg("");
     const r = await fetch("/api/staf", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: u.id, role: u.role, fee_persen: u.fee_persen, modal: u.modal, bagi_hasil_persen: u.bagi_hasil_persen }),
+      body: JSON.stringify({ id: u.id, access: u.access, is_mitra: u.is_mitra, fee_persen: u.fee_persen, is_investor: u.is_investor, modal: u.modal, bagi_hasil_persen: u.bagi_hasil_persen }),
     });
     setSavingId(null);
     if (r.ok) setMsg(`Tersimpan: ${u.nama}`);
@@ -38,7 +38,7 @@ export default function StafPage() {
   return (
     <AppShell>
       <h1 className="text-2xl font-bold text-navy-900 mb-1">Kelola Staf</h1>
-      <p className="text-slate-500 text-sm mb-5">Atur peran & fee mitra. Staf ditambahkan lewat Z One /manage.</p>
+      <p className="text-slate-500 text-sm mb-5">Atur akses operasional & kapabilitas mitra/investor. Satu orang bisa punya beberapa peran sekaligus. Staf ditambahkan lewat Z One /manage.</p>
 
       {msg && <p className="text-sm text-emerald-600 mb-3"><i className="bi bi-check-circle me-1" />{msg}</p>}
 
@@ -56,47 +56,65 @@ export default function StafPage() {
                 {!u.is_active && <span className="badge bg-slate-100 text-slate-500 border border-slate-200">Nonaktif</span>}
               </div>
 
-              <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-3">
+                {/* Akses operasional */}
                 <div>
-                  <label className="label">Peran</label>
-                  <select className="input" value={u.role} onChange={(e) => setRow(u.id, { role: e.target.value })}>
-                    <option value="kasir">Marketing</option>
-                    <option value="mitra">Mitra</option>
-                    <option value="investor">Investor</option>
-                    <option value="admin">Admin</option>
+                  <label className="label">Akses operasional</label>
+                  <select className="input max-w-[220px]" value={u.access} onChange={(e) => setRow(u.id, { access: e.target.value })}>
+                    <option value="admin">Admin (kelola semua)</option>
+                    <option value="marketing">Marketing (proses gadai)</option>
+                    <option value="none">Tanpa akses operasional</option>
                   </select>
+                  {u.access === "none" && (
+                    <p className="text-[11px] text-slate-400 mt-1">Tidak bisa membuka aplikasi operasional. Diarahkan ke portal pribadi /saya.</p>
+                  )}
                 </div>
-                {u.role === "mitra" && (
+
+                {/* Kapabilitas tambahan (bisa bertumpuk) */}
+                <div className="flex flex-wrap items-start gap-x-6 gap-y-3 pt-1 border-t border-slate-100">
                   <div>
-                    <label className="label">Fee % (dari bunga)</label>
-                    <input className="input tnum max-w-[120px]" inputMode="decimal" value={u.fee_persen}
-                      onChange={(e) => setRow(u.id, { fee_persen: e.target.value.replace(/[^\d.]/g, "") })} />
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" className="accent-navy-700" checked={u.is_mitra}
+                        onChange={(e) => setRow(u.id, { is_mitra: e.target.checked })} />
+                      <span className="text-sm font-medium text-navy-900">Mitra</span>
+                    </label>
+                    {u.is_mitra && (
+                      <div className="mt-2">
+                        <label className="label">Fee % (dari bunga)</label>
+                        <input className="input tnum max-w-[120px]" inputMode="decimal" value={u.fee_persen}
+                          onChange={(e) => setRow(u.id, { fee_persen: e.target.value.replace(/[^\d.]/g, "") })} />
+                        <p className="text-[11px] text-slate-400 mt-1">Dapat {Number(u.fee_persen) || 0}% dari bunga gadai yang dia bawa.</p>
+                      </div>
+                    )}
                   </div>
-                )}
-                {u.role === "investor" && (
-                  <>
-                    <div>
-                      <label className="label">Modal (Rp)</label>
-                      <input className="input tnum max-w-[160px]" inputMode="numeric" value={u.modal}
-                        onChange={(e) => setRow(u.id, { modal: e.target.value.replace(/\D/g, "") })} />
-                    </div>
-                    <div>
-                      <label className="label">Bagi hasil % (dari laba)</label>
-                      <input className="input tnum max-w-[120px]" inputMode="decimal" value={u.bagi_hasil_persen}
-                        onChange={(e) => setRow(u.id, { bagi_hasil_persen: e.target.value.replace(/[^\d.]/g, "") })} />
-                    </div>
-                  </>
-                )}
+
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" className="accent-navy-700" checked={u.is_investor}
+                        onChange={(e) => setRow(u.id, { is_investor: e.target.checked })} />
+                      <span className="text-sm font-medium text-navy-900">Investor</span>
+                    </label>
+                    {u.is_investor && (
+                      <div className="mt-2 flex flex-wrap items-end gap-3">
+                        <div>
+                          <label className="label">Modal (Rp)</label>
+                          <input className="input tnum max-w-[160px]" inputMode="numeric" value={u.modal}
+                            onChange={(e) => setRow(u.id, { modal: e.target.value.replace(/\D/g, "") })} />
+                        </div>
+                        <div>
+                          <label className="label">Bagi hasil % (dari laba)</label>
+                          <input className="input tnum max-w-[120px]" inputMode="decimal" value={u.bagi_hasil_persen}
+                            onChange={(e) => setRow(u.id, { bagi_hasil_persen: e.target.value.replace(/[^\d.]/g, "") })} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <button className="btn-primary" onClick={() => simpan(u)} disabled={savingId === u.id}>
                   {savingId === u.id ? "Menyimpan…" : "Simpan"}
                 </button>
               </div>
-              {u.role === "mitra" && (
-                <p className="text-[11px] text-slate-400 mt-2">Mitra dapat {Number(u.fee_persen) || 0}% dari bunga yang terkumpul dari gadai yang dia buat.</p>
-              )}
-              {u.role === "investor" && (
-                <p className="text-[11px] text-slate-400 mt-2">Investor pantau bisnis (read-only) & dapat {Number(u.bagi_hasil_persen) || 0}% bagi hasil dari laba.</p>
-              )}
             </div>
           ))}
         </div>

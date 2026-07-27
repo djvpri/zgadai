@@ -6,7 +6,7 @@ export async function GET() {
   if (s) {
     return NextResponse.json({
       kind: "staff",
-      user: { id: s.user_id, email: s.email, nama: s.nama, role: s.role },
+      user: { id: s.user_id, email: s.email, nama: s.nama, access: s.access, is_mitra: s.is_mitra, is_investor: s.is_investor },
       tenant: { id: s.tenant_id, nama_usaha: s.nama_usaha, slug: s.slug },
     });
   }

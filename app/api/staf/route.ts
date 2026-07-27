@@ -5,19 +5,20 @@ import { currentSession } from "@/lib/auth";
 // GET /api/staf — daftar staf (admin).
 export async function GET() {
   const s = await currentSession();
-  if (!s || s.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  if (!s || s.access !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   const staf = await dbAll(
-    `SELECT id, email, nama, role, fee_persen, modal, bagi_hasil_persen, is_active
+    `SELECT id, email, nama, access, is_mitra, is_investor, fee_persen, modal, bagi_hasil_persen, is_active
        FROM users WHERE tenant_id = $1 ORDER BY created_at`,
     [s.tenant_id]
   );
   return NextResponse.json({ staf, me: s.user_id });
 }
 
-// PATCH /api/staf — ubah role & fee% staf (admin). Body: { id, role, fee_persen }
+// PATCH /api/staf — ubah kapabilitas staf (admin).
+// Body: { id, access, is_mitra, fee_persen, is_investor, modal, bagi_hasil_persen }
 export async function PATCH(req: NextRequest) {
   const s = await currentSession();
-  if (!s || s.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  if (!s || s.access !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   const b = await req.json().catch(() => ({}));
   const id = Number(b.id);
   if (!id) return NextResponse.json({ error: "id wajib" }, { status: 400 });
@@ -25,13 +26,15 @@ export async function PATCH(req: NextRequest) {
   const row = await dbOne<any>(`SELECT id FROM users WHERE id = $1 AND tenant_id = $2`, [id, s.tenant_id]);
   if (!row) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
 
-  const role = ["admin", "kasir", "mitra", "investor"].includes(b.role) ? b.role : "kasir";
-  const fee = role === "mitra" ? Math.max(0, Math.min(100, Number(b.fee_persen) || 0)) : 0;
-  const modal = role === "investor" ? Math.max(0, Math.round(Number(b.modal) || 0)) : 0;
-  const bagi = role === "investor" ? Math.max(0, Math.min(100, Number(b.bagi_hasil_persen) || 0)) : 0;
+  const access = ["admin", "marketing", "none"].includes(b.access) ? b.access : "none";
+  const isMitra = !!b.is_mitra;
+  const isInvestor = !!b.is_investor;
+  const fee = isMitra ? Math.max(0, Math.min(100, Number(b.fee_persen) || 0)) : 0;
+  const modal = isInvestor ? Math.max(0, Math.round(Number(b.modal) || 0)) : 0;
+  const bagi = isInvestor ? Math.max(0, Math.min(100, Number(b.bagi_hasil_persen) || 0)) : 0;
   await dbRun(
-    `UPDATE users SET role = $1, fee_persen = $2, modal = $3, bagi_hasil_persen = $4 WHERE id = $5`,
-    [role, fee, modal, bagi, id]
+    `UPDATE users SET access = $1, is_mitra = $2, is_investor = $3, fee_persen = $4, modal = $5, bagi_hasil_persen = $6 WHERE id = $7`,
+    [access, isMitra, isInvestor, fee, modal, bagi, id]
   );
   return NextResponse.json({ ok: true });
 }

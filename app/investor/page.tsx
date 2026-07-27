@@ -16,7 +16,7 @@ export default function InvestorPage() {
     }).finally(() => setLoading(false));
   }, [router]);
 
-  const isAdmin = d?.role === "admin";
+  const isAdmin = d?.admin;
 
   return (
     <AppShell>

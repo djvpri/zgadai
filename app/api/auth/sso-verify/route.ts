@@ -29,9 +29,10 @@ export async function POST(req: NextRequest) {
     const email = String(payload.email || "").trim().toLowerCase();
     if (!email) return NextResponse.json({ error: "Email tidak ada di token" }, { status: 400 });
 
-    // 1) Staff (users) → aplikasi admin
+    // 1) Punya akun users (staff / mitra / investor) → sesi user.
+    //    Operasional (admin/marketing) → app /dashboard; selain itu → portal /saya.
     const user = await dbOne<any>(
-      `SELECT u.id, u.is_active, u.tenant_id, t.is_active as tenant_active
+      `SELECT u.id, u.is_active, u.tenant_id, u.access, t.is_active as tenant_active
          FROM users u JOIN tenants t ON t.id = u.tenant_id
         WHERE lower(u.email) = $1 LIMIT 1`,
       [email]
@@ -40,7 +41,8 @@ export async function POST(req: NextRequest) {
       if (!user.is_active) return NextResponse.json({ error: "Akun Anda dinonaktifkan." }, { status: 403 });
       if (!user.tenant_active) return NextResponse.json({ error: "Usaha Anda dinonaktifkan." }, { status: 403 });
       const sid = await createSession(user.id, user.tenant_id);
-      return setCookie(NextResponse.json({ success: true, redirect: "/dashboard" }), sid);
+      const redirect = user.access === "admin" || user.access === "marketing" ? "/dashboard" : "/saya";
+      return setCookie(NextResponse.json({ success: true, redirect }), sid);
     }
 
     // 2) Nasabah (terdaftar oleh tempat gadai dengan email ini) → portal /saya
