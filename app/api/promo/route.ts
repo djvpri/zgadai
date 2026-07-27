@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbAll, dbOne } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
+import { logAktivitas } from "@/lib/log";
 
 // GET /api/promo — daftar promo tenant.
 export async function GET() {
@@ -36,5 +37,6 @@ export async function POST(req: NextRequest) {
      VALUES ($1,$2,$3,$4,$5) RETURNING id`,
     [s.tenant_id, nama, mulai, selesai, diskon]
   );
+  await logAktivitas(s, "promo.buat", `Buat promo "${nama}" diskon bunga ${diskon}%`, "promo", (row as any)?.id);
   return NextResponse.json({ id: (row as any)?.id });
 }

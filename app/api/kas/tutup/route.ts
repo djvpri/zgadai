@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbAll, dbOne, dbRun } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
+import { logAktivitas, rp } from "@/lib/log";
 
 // POST /api/kas/tutup — tutup kas hari ini: cocokkan saldo tunai sistem vs hitungan fisik.
 // Body: { saldo_fisik, catatan? }
@@ -30,6 +31,7 @@ export async function POST(req: NextRequest) {
            selisih=excluded.selisih, catatan=excluded.catatan, created_by=excluded.created_by, created_at=now()`,
     [s.tenant_id, today, saldoSistem, saldoFisik, selisih, String(b.catatan || "").slice(0, 200) || null, s.user_id]
   );
+  await logAktivitas(s, "kas.tutup", `Tutup kas · fisik ${rp(saldoFisik)}${selisih === 0 ? " (cocok)" : ` (selisih ${rp(selisih)})`}`, "kas");
   return NextResponse.json({ ok: true, saldo_sistem: saldoSistem, saldo_fisik: saldoFisik, selisih });
 }
 

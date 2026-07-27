@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbAll, dbRun, dbOne } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
+import { logAktivitas } from "@/lib/log";
 
 // GET /api/staf — daftar staf (admin).
 export async function GET() {
@@ -23,7 +24,7 @@ export async function PATCH(req: NextRequest) {
   const id = Number(b.id);
   if (!id) return NextResponse.json({ error: "id wajib" }, { status: 400 });
 
-  const row = await dbOne<any>(`SELECT id FROM users WHERE id = $1 AND tenant_id = $2`, [id, s.tenant_id]);
+  const row = await dbOne<any>(`SELECT id, nama FROM users WHERE id = $1 AND tenant_id = $2`, [id, s.tenant_id]);
   if (!row) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
 
   const access = ["admin", "marketing", "none"].includes(b.access) ? b.access : "none";
@@ -36,5 +37,7 @@ export async function PATCH(req: NextRequest) {
     `UPDATE users SET access = $1, is_mitra = $2, is_investor = $3, fee_persen = $4, modal = $5, bagi_hasil_persen = $6 WHERE id = $7`,
     [access, isMitra, isInvestor, fee, modal, bagi, id]
   );
+  const peran = [access !== "none" ? access : "", isMitra ? "mitra" : "", isInvestor ? "investor" : ""].filter(Boolean).join("+") || "tanpa akses";
+  await logAktivitas(s, "staf.ubah", `Ubah kapabilitas ${row.nama}: ${peran}`, "staf", id);
   return NextResponse.json({ ok: true });
 }

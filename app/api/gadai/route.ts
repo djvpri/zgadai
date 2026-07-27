@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { dbAll } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
+import { logAktivitas, rp } from "@/lib/log";
 import { tambahHari } from "@/lib/gadai";
 
 // GET /api/gadai?status=aktif|lunas|lelang&q=...
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
     }
 
     await client.query("COMMIT");
+    await logAktivitas(s, "gadai.buat", `Buat gadai ${noSbg} · pokok ${rp(pokok)}`, "gadai", id);
     return NextResponse.json({ id, no_sbg: noSbg });
   } catch (e: any) {
     await client.query("ROLLBACK").catch(() => {});

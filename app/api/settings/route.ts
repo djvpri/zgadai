@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbOne, dbRun } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
+import { logAktivitas } from "@/lib/log";
 
 // GET /api/settings -> { settings } milik tenant.
 export async function GET() {
@@ -46,5 +47,7 @@ export async function POST(req: NextRequest) {
     [JSON.stringify(patch), s.tenant_id]);
 
   const row = await dbOne<any>(`SELECT nama_usaha, settings FROM tenants WHERE id = $1`, [s.tenant_id]);
+  const diubah = [nama ? "nama usaha" : "", ...Object.keys(patch)].filter(Boolean).join(", ");
+  await logAktivitas(s, "settings.ubah", `Ubah pengaturan: ${diubah}`, "settings");
   return NextResponse.json({ nama_usaha: row?.nama_usaha || "", settings: row?.settings || {} });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbAll, dbOne, dbRun } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
+import { logAktivitas, rp } from "@/lib/log";
 
 const KATEGORI = ["pencairan", "pembayaran", "operasional", "modal", "prive", "lelang", "lainnya"];
 
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
     [s.tenant_id, tgl, arah, kategori, metode, jumlah, String(b.keterangan || "").slice(0, 200) || null, s.user_id]
   );
+  await logAktivitas(s, "kas.entri", `Kas ${arah} ${rp(jumlah)} (${kategori})${b.keterangan ? " · " + String(b.keterangan).slice(0, 60) : ""}`, "kas");
   return NextResponse.json({ ok: true });
 }
 
@@ -90,5 +92,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Entri otomatis (dari transaksi) tidak bisa dihapus di sini" }, { status: 400 });
   }
   await dbRun(`DELETE FROM kas WHERE id=$1 AND tenant_id=$2`, [id, s.tenant_id]);
+  await logAktivitas(s, "kas.hapus", `Hapus entri kas #${id}`, "kas", id);
   return NextResponse.json({ ok: true });
 }

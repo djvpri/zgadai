@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { dbOne } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
 import { hitungBunga, periodeBerjalan, selisihHari, tambahHari, hariTelat, hitungDenda } from "@/lib/gadai";
+import { logAktivitas, rp } from "@/lib/log";
 
 // POST /api/gadai/[id]/bayar  { jenis, pokok_dibayar? }
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -118,6 +119,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     await client.query("COMMIT");
+    await logAktivitas(s, `gadai.${jenis}`, `${jenis[0].toUpperCase()}${jenis.slice(1)} ${g.no_sbg} · ${rp(total)}${lunas ? " (LUNAS)" : ""}`, "gadai", g.id);
     return NextResponse.json({ ok: true, jenis, bunga, denda, pokok_dibayar: pokokDibayar, total, jatuh_tempo_baru: jatuhTempoBaru });
   } catch (e: any) {
     await client.query("ROLLBACK").catch(() => {});

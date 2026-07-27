@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbOne, dbAll } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
+import { logAktivitas } from "@/lib/log";
 
 // GET /api/nasabah/[id] -> { nasabah, gadai[] }
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -61,5 +62,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     [nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, email,
      b.bank_nama || null, b.no_rekening || null, b.rekening_atas_nama || null, params.id]
   );
+  await logAktivitas(s, "nasabah.ubah", `Ubah data nasabah ${nama}`, "nasabah", Number(params.id));
   return NextResponse.json({ ok: true });
 }

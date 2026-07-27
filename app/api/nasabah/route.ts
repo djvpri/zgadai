@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbAll, dbOne } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
+import { logAktivitas } from "@/lib/log";
 
 export async function GET(req: NextRequest) {
   const s = await currentSession();
@@ -40,5 +41,6 @@ export async function POST(req: NextRequest) {
     [s.tenant_id, nama, b.no_ktp || null, b.no_hp || null, b.alamat || null, b.catatan || null, foto, email,
      b.bank_nama || null, b.no_rekening || null, b.rekening_atas_nama || null]
   );
+  await logAktivitas(s, "nasabah.buat", `Tambah nasabah ${nama}`, "nasabah", (row as any)?.id);
   return NextResponse.json({ nasabah: row });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbOne, dbRun } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
+import { logAktivitas } from "@/lib/log";
 
 // POST /api/nasabah/[id]/kapabilitas — jadikan nasabah ini Mitra/Investor (admin).
 // Membuat/menautkan baris users berdasarkan EMAIL nasabah (access='none' bila baru),
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const modal = isInvestor ? Math.max(0, Math.round(Number(b.modal) || 0)) : 0;
   const bagi = isInvestor ? Math.max(0, Math.min(100, Number(b.bagi_hasil_persen) || 0)) : 0;
 
+  const peran = [isMitra ? "Mitra" : "", isInvestor ? "Investor" : ""].filter(Boolean).join(", ") || "tanpa peran tambahan";
+
   // Sudah ada baris users dengan email ini? (email unik global)
   const existing = await dbOne<any>(`SELECT id, tenant_id, access FROM users WHERE lower(email) = $1 LIMIT 1`, [email]);
 
@@ -37,6 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       `UPDATE users SET is_mitra=$1, is_investor=$2, fee_persen=$3, modal=$4, bagi_hasil_persen=$5 WHERE id=$6`,
       [isMitra, isInvestor, fee, modal, bagi, existing.id]
     );
+    await logAktivitas(s, "kapabilitas.set", `Set peran ${nasabah.nama}: ${peran}`, "nasabah", Number(params.id));
     return NextResponse.json({ ok: true, user_id: existing.id, created: false });
   }
 
@@ -46,5 +50,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
      VALUES ($1,$2,$3,'none',$4,$5,$6,$7,$8) RETURNING id`,
     [s.tenant_id, email, nasabah.nama, isMitra, isInvestor, fee, modal, bagi]
   );
+  await logAktivitas(s, "kapabilitas.set", `Set peran ${nasabah.nama}: ${peran}`, "nasabah", Number(params.id));
   return NextResponse.json({ ok: true, user_id: created!.id, created: true });
 }

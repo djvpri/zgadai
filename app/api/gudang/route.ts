@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { dbAll, dbRun } from "@/lib/db";
+import { dbAll, dbRun, dbOne } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
+import { logAktivitas } from "@/lib/log";
 
 // GET /api/gudang?q= — daftar barang yang fisiknya HARUS ada (disimpan) + yang dilaporkan hilang.
 export async function GET(req: NextRequest) {
@@ -52,6 +53,7 @@ export async function PATCH(req: NextRequest) {
     if (!ids.length) return NextResponse.json({ error: "Pilih barang dulu" }, { status: 400 });
     const lokasi = String(b.lokasi || "").trim() || null;
     await dbRun(`UPDATE barang SET lokasi=$1 WHERE id = ANY($3::bigint[]) AND ${scope}`, [lokasi, s.tenant_id, ids]);
+    await logAktivitas(s, "barang.lokasi", `Set lokasi ${ids.length} barang → ${lokasi || "(kosong)"}`, "barang");
     return NextResponse.json({ ok: true });
   }
 
@@ -63,11 +65,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
   if (action === "hilang") {
+    const bd = await dbOne<any>(`SELECT nama FROM barang WHERE id=$1 AND ${scope}`, [id, s.tenant_id]);
     await dbRun(`UPDATE barang SET status_fisik='hilang' WHERE id=$1 AND ${scope}`, [id, s.tenant_id]);
+    await logAktivitas(s, "barang.hilang", `Lapor HILANG: ${bd?.nama || "barang #" + id}`, "barang", id);
     return NextResponse.json({ ok: true });
   }
   if (action === "ketemu") {
+    const bd = await dbOne<any>(`SELECT nama FROM barang WHERE id=$1 AND ${scope}`, [id, s.tenant_id]);
     await dbRun(`UPDATE barang SET status_fisik='disimpan', terakhir_opname=now() WHERE id=$1 AND ${scope}`, [id, s.tenant_id]);
+    await logAktivitas(s, "barang.ketemu", `Barang ketemu kembali: ${bd?.nama || "barang #" + id}`, "barang", id);
     return NextResponse.json({ ok: true });
   }
   return NextResponse.json({ error: "Aksi tidak dikenal" }, { status: 400 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { dbOne, dbRun } from "@/lib/db";
 import { currentSession } from "@/lib/auth";
 import { hitungTebus } from "@/lib/gadai";
+import { logAktivitas, rp } from "@/lib/log";
 
 // POST /api/gadai/[id]/lelang { harga_lelang }
 // Tandai gadai sebagai LELANG: catat harga jual + kewajiban (pokok+bunga+denda).
@@ -59,5 +60,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
 
+  await logAktivitas(s, "gadai.lelang", `Lelang ${g.no_sbg} · jual ${rp(harga)} (kewajiban ${rp(kewajiban)})`, "gadai", g.id);
   return NextResponse.json({ ok: true, harga, kewajiban, selisih: kelebihan });
 }
